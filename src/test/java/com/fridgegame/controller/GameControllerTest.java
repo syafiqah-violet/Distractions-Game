@@ -7,7 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.fridgegame.model.FoodCategory;
 import com.fridgegame.model.GameState;
 import com.fridgegame.model.GroceryItem;
+import com.fridgegame.model.Level;
 import com.fridgegame.model.StorageZone;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class GameControllerTest {
@@ -53,5 +55,48 @@ class GameControllerTest {
         assertEquals(45, state.getScore());
         assertEquals(0, state.getStreak());
         assertEquals(GameState.STARTING_LIVES - 1, state.getLives());
+    }
+
+    @Test
+    void levelCompleteFiresWithTimeBonusWhenLastItemIsSortedCorrectly() {
+        GameState state = new GameState();
+        GameController controller = new GameController(state);
+        controller.startLevel(new Level(1, List.of(LETTUCE), 20));
+        int[] bonus = {-1};
+        controller.setOnLevelComplete(b -> bonus[0] = b);
+
+        controller.handleDrop(LETTUCE, StorageZone.CRISPER);
+
+        assertEquals(40, bonus[0]);
+        assertEquals(10 + 40, state.getScore());
+    }
+
+    @Test
+    void gameOverFiresWhenLivesReachZero() {
+        GameState state = new GameState();
+        state.setLives(1);
+        GameController controller = new GameController(state);
+        boolean[] fired = {false};
+        controller.setOnGameOver(() -> fired[0] = true);
+
+        boolean correct = controller.handleDrop(LETTUCE, StorageZone.TOP_SHELF);
+
+        assertFalse(correct);
+        assertTrue(fired[0]);
+        assertEquals(0, state.getLives());
+    }
+
+    @Test
+    void tickCountsDownAndTriggersGameOverAtZero() {
+        GameState state = new GameState();
+        state.setSecondsLeft(1);
+        GameController controller = new GameController(state);
+        boolean[] fired = {false};
+        controller.setOnGameOver(() -> fired[0] = true);
+
+        controller.tick();
+
+        assertEquals(0, state.getSecondsLeft());
+        assertTrue(fired[0]);
     }
 }

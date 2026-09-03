@@ -105,3 +105,18 @@
     -fx-border-width: 3px;
     -fx-border-style: dashed;
 }
+
+.level-complete, .game-over {
+    -fx-padding: 40px;
+    -fx-background-color: white;
+    -fx-background-radius: 16px;
+    -fx-border-color: #d5dce1;
+    -fx-border-width: 2px;
+    -fx-border-radius: 16px;
+}
+
+.level-complete-title, .game-over-title {
+    -fx-font-size: 28px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #33475b;
+}
