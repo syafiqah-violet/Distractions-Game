@@ -18,14 +18,14 @@ public final class DragHandler {
     private DragHandler() {
     }
 
-    public static void wire(FridgeView fridge, CounterView counter) {
+    public static void wire(FridgeView fridge, CounterView counter, GameController controller) {
         for (Node child : counter.getBody().getChildren()) {
             if (child instanceof GroceryNode node) {
                 installDragSource(node);
             }
         }
         for (ZoneNode zone : fridge.getZones()) {
-            installDropTarget(zone);
+            installDropTarget(zone, controller);
         }
     }
 
@@ -49,7 +49,7 @@ public final class DragHandler {
         });
     }
 
-    private static void installDropTarget(ZoneNode zone) {
+    private static void installDropTarget(ZoneNode zone, GameController controller) {
         zone.setOnDragOver(e -> {
             if (e.getGestureSource() != zone && e.getDragboard().hasString()) {
                 e.acceptTransferModes(TransferMode.MOVE);
@@ -62,10 +62,13 @@ public final class DragHandler {
 
         zone.setOnDragDropped(e -> {
             Dragboard db = e.getDragboard();
-            boolean success = db.hasString();
-            if (success) {
+            boolean success = false;
+            if (db.hasString()) {
                 GroceryItem item = ItemCatalog.byId(db.getString());
-                zone.getBody().getChildren().add(new GroceryNode(item));
+                success = controller.handleDrop(item, zone.getZone());
+                if (success) {
+                    zone.getBody().getChildren().add(new GroceryNode(item));
+                }
             }
             e.setDropCompleted(success);
             e.consume();
