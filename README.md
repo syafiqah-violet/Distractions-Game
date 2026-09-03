@@ -26,7 +26,7 @@ src/main/java/com/fridgegame/
 ├── FridgeGameApp.java   # Application; owns the Stage and the single Scene
 ├── model/               # FoodCategory, StorageZone, GroceryItem, Level, GameState
 ├── data/                # ItemCatalog
-├── view/                # GroceryNode, ZoneNode, FridgeView, CounterView, HudView
+├── view/                # GroceryNode, ZoneNode, FridgeView, CounterView, HudView, LevelCompleteView, GameOverView
 └── controller/          # GameController, DragHandler
 
 src/main/resources/com/fridgegame/styles.css
@@ -40,7 +40,7 @@ src/test/java/com/fridgegame/
 - [x] **Phase 2 — Static layout:** `FridgeView`, `ZoneNode`, `CounterView`, `GroceryNode`, `HudView`
 - [x] **Phase 3 — Drag & drop:** `DragHandler` wires the Dragboard API onto counter items and fridge zones
 - [x] **Phase 4 — Rules & scoring:** `GameController` scores correct/wrong drops, updates streak/lives, rejects wrong-zone drops
-- [ ] Phase 5 — Timer & levels
+- [x] **Phase 5 — Timer & levels:** countdown `Timeline`, level-complete banner with time bonus, game over + restart
 - [ ] Phase 6 — Polish
 
 ## Pinned versions
