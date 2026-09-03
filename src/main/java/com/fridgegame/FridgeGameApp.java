@@ -1,5 +1,6 @@
 package com.fridgegame;
 
+import com.fridgegame.controller.DragHandler;
 import com.fridgegame.data.ItemCatalog;
 import com.fridgegame.model.GameState;
 import com.fridgegame.view.CounterView;
@@ -30,12 +31,16 @@ public class FridgeGameApp extends Application {
         GameState state = new GameState();
         state.startLevel(ItemCatalog.LEVELS.get(0));
 
+        FridgeView fridgeView = new FridgeView();
+        CounterView counterView = new CounterView(ItemCatalog.LEVELS.get(0).items());
+        DragHandler.wire(fridgeView, counterView);
+
         BorderPane root = new BorderPane();
         root.getStyleClass().add("game-root");
         root.setPadding(new Insets(12));
         root.setTop(new HudView(state));
-        root.setLeft(new FridgeView());
-        root.setCenter(new CounterView(ItemCatalog.LEVELS.get(0).items()));
+        root.setLeft(fridgeView);
+        root.setCenter(counterView);
 
         scene = new Scene(root, WIDTH, HEIGHT);
         scene.getStylesheets().add(
