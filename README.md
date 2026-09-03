@@ -39,7 +39,7 @@ src/test/java/com/fridgegame/
 - [x] **Phase 1 — Model:** enums, `GroceryItem`, `Level`, `GameState`, `ItemCatalog` (15 items, 3 levels)
 - [x] **Phase 2 — Static layout:** `FridgeView`, `ZoneNode`, `CounterView`, `GroceryNode`, `HudView`
 - [x] **Phase 3 — Drag & drop:** `DragHandler` wires the Dragboard API onto counter items and fridge zones
-- [ ] Phase 4 — Rules & scoring
+- [x] **Phase 4 — Rules & scoring:** `GameController` scores correct/wrong drops, updates streak/lives, rejects wrong-zone drops
 - [ ] Phase 5 — Timer & levels
 - [ ] Phase 6 — Polish
 

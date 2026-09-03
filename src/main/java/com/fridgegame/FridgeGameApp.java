@@ -1,6 +1,7 @@
 package com.fridgegame;
 
 import com.fridgegame.controller.DragHandler;
+import com.fridgegame.controller.GameController;
 import com.fridgegame.data.ItemCatalog;
 import com.fridgegame.model.GameState;
 import com.fridgegame.view.CounterView;
@@ -33,7 +34,8 @@ public class FridgeGameApp extends Application {
 
         FridgeView fridgeView = new FridgeView();
         CounterView counterView = new CounterView(ItemCatalog.LEVELS.get(0).items());
-        DragHandler.wire(fridgeView, counterView);
+        GameController controller = new GameController(state);
+        DragHandler.wire(fridgeView, counterView, controller);
 
         BorderPane root = new BorderPane();
         root.getStyleClass().add("game-root");
