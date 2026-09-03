@@ -1,9 +1,14 @@
 package com.fridgegame;
 
+import com.fridgegame.data.ItemCatalog;
+import com.fridgegame.model.GameState;
+import com.fridgegame.view.CounterView;
+import com.fridgegame.view.FridgeView;
+import com.fridgegame.view.HudView;
 import javafx.application.Application;
+import javafx.geometry.Insets;
 import javafx.scene.Scene;
-import javafx.scene.control.Label;
-import javafx.scene.layout.StackPane;
+import javafx.scene.layout.BorderPane;
 import javafx.stage.Stage;
 
 /**
@@ -22,10 +27,17 @@ public class FridgeGameApp extends Application {
 
     @Override
     public void start(Stage stage) {
-        StackPane placeholder = new StackPane(new Label("\uD83E\uDDCA  Refrigerator Sorting Game"));
-        placeholder.getStyleClass().add("placeholder");
+        GameState state = new GameState();
+        state.startLevel(ItemCatalog.LEVELS.get(0));
 
-        scene = new Scene(placeholder, WIDTH, HEIGHT);
+        BorderPane root = new BorderPane();
+        root.getStyleClass().add("game-root");
+        root.setPadding(new Insets(12));
+        root.setTop(new HudView(state));
+        root.setLeft(new FridgeView());
+        root.setCenter(new CounterView(ItemCatalog.LEVELS.get(0).items()));
+
+        scene = new Scene(root, WIDTH, HEIGHT);
         scene.getStylesheets().add(
                 FridgeGameApp.class.getResource("styles.css").toExternalForm());
 

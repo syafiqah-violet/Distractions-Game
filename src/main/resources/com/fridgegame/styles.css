@@ -10,10 +10,93 @@
     -fx-font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji";
 }
 
-.placeholder .label {
-    -fx-font-family: "Segoe UI Emoji", "Segoe UI", sans-serif;
-    -fx-font-size: 28px;
+.hud {
+    -fx-background-color: white;
+    -fx-background-radius: 8px;
+    -fx-border-color: #d5dce1;
+    -fx-border-radius: 8px;
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
     -fx-text-fill: #33475b;
+}
+
+.fridge {
+    -fx-pref-width: 340px;
+    -fx-padding: 12px;
+    -fx-background-color: #c9d1d6;
+    -fx-background-radius: 12px;
+    -fx-border-color: #9aa5ab;
+    -fx-border-width: 2px;
+    -fx-border-radius: 12px;
+}
+
+.zone {
+    -fx-padding: 8px;
+    -fx-background-radius: 8px;
+    -fx-border-color: rgba(0, 0, 0, 0.15);
+    -fx-border-radius: 8px;
+}
+
+.zone-header {
+    -fx-font-weight: bold;
+    -fx-text-fill: #33475b;
+    -fx-padding: 0 0 6px 2px;
+}
+
+.zone-body {
+    -fx-padding: 4px;
+    -fx-min-height: 60px;
+}
+
+.zone-door       { -fx-background-color: #cde7f0; }
+.zone-top-shelf  { -fx-background-color: #fff6cc; }
+.zone-mid-shelf  { -fx-background-color: #ffd9d9; }
+.zone-crisper    { -fx-background-color: #d8f5d0; }
+.zone-freezer    { -fx-background-color: #dbe9ff; }
+
+.counter {
+    -fx-padding: 12px;
+    -fx-background-color: white;
+    -fx-background-radius: 12px;
+    -fx-border-color: #d5dce1;
+    -fx-border-width: 2px;
+    -fx-border-radius: 12px;
+}
+
+.counter-header {
+    -fx-font-weight: bold;
+    -fx-font-size: 15px;
+    -fx-text-fill: #33475b;
+    -fx-padding: 0 0 8px 2px;
+}
+
+.counter-scroll {
+    -fx-background-color: transparent;
+}
+
+.counter-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+
+.counter-body {
+    -fx-padding: 4px;
+}
+
+.grocery-node {
+    -fx-background-color: white;
+    -fx-background-radius: 10px;
+    -fx-border-color: #d5dce1;
+    -fx-border-radius: 10px;
+}
+
+.grocery-emoji {
+    -fx-font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji";
+    -fx-font-size: 32px;
+}
+
+.grocery-name {
+    -fx-font-size: 11px;
+    -fx-text-fill: #5c6b73;
 }
 
 /* Drop-target highlight, applied by ZoneNode on drag-entered (phase 3). */
