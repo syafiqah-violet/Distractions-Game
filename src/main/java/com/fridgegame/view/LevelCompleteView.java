@@ -18,6 +18,7 @@ public class LevelCompleteView extends VBox {
         scoreLabel.textProperty().bind(state.scoreProperty().asString("Score: %d"));
 
         Button nextButton = new Button("Next Level");
+        nextButton.getStyleClass().add("primary-button");
         nextButton.setOnAction(e -> onNext.run());
 
         getStyleClass().add("level-complete");

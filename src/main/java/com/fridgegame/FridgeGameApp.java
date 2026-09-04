@@ -2,6 +2,7 @@ package com.fridgegame;
 
 import com.fridgegame.controller.DragHandler;
 import com.fridgegame.controller.GameController;
+import com.fridgegame.data.HighScoreStore;
 import com.fridgegame.data.ItemCatalog;
 import com.fridgegame.model.GameState;
 import com.fridgegame.model.Level;
@@ -36,6 +37,7 @@ public class FridgeGameApp extends Application {
     private Scene scene;
     private GameState state;
     private GameController controller;
+    private HighScoreStore highScoreStore;
     private Timeline timer;
     private BorderPane gameRoot;
     private int levelIndex;
@@ -46,11 +48,12 @@ public class FridgeGameApp extends Application {
         controller = new GameController(state);
         controller.setOnLevelComplete(this::onLevelComplete);
         controller.setOnGameOver(() -> endGame(false));
+        highScoreStore = new HighScoreStore();
 
         gameRoot = new BorderPane();
         gameRoot.getStyleClass().add("game-root");
         gameRoot.setPadding(new Insets(12));
-        gameRoot.setTop(new HudView(state));
+        gameRoot.setTop(new HudView(state, highScoreStore));
 
         timer = new Timeline(new KeyFrame(Duration.seconds(1), e -> controller.tick()));
         timer.setCycleCount(Animation.INDEFINITE);
@@ -101,7 +104,8 @@ public class FridgeGameApp extends Application {
 
     private void endGame(boolean won) {
         timer.stop();
-        showScreen(new GameOverView(state, won, this::restart));
+        boolean isNewHighScore = highScoreStore.submit(state.getScore());
+        showScreen(new GameOverView(state, won, isNewHighScore, this::restart));
     }
 
     private void restart() {

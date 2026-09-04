@@ -6,11 +6,15 @@ import com.fridgegame.view.CounterView;
 import com.fridgegame.view.FridgeView;
 import com.fridgegame.view.GroceryNode;
 import com.fridgegame.view.ZoneNode;
+import javafx.animation.KeyFrame;
+import javafx.animation.ScaleTransition;
+import javafx.animation.Timeline;
 import javafx.scene.Node;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.Dragboard;
 import javafx.scene.input.TransferMode;
 import javafx.scene.layout.Pane;
+import javafx.util.Duration;
 
 /** Wires the Dragboard API onto grocery/zone nodes. No rules or scoring yet (Phase 4). */
 public final class DragHandler {
@@ -67,11 +71,31 @@ public final class DragHandler {
                 GroceryItem item = ItemCatalog.byId(db.getString());
                 success = controller.handleDrop(item, zone.getZone());
                 if (success) {
-                    zone.getBody().getChildren().add(new GroceryNode(item));
+                    GroceryNode placed = new GroceryNode(item);
+                    zone.getBody().getChildren().add(placed);
+                    pulseCorrect(placed);
+                } else {
+                    flashWrong(zone);
                 }
             }
             e.setDropCompleted(success);
             e.consume();
         });
+    }
+
+    private static void pulseCorrect(Node node) {
+        ScaleTransition pulse = new ScaleTransition(Duration.millis(200), node);
+        pulse.setFromX(0.5);
+        pulse.setFromY(0.5);
+        pulse.setToX(1.0);
+        pulse.setToY(1.0);
+        pulse.play();
+    }
+
+    private static void flashWrong(ZoneNode zone) {
+        Timeline flash = new Timeline(
+                new KeyFrame(Duration.ZERO, e -> zone.getStyleClass().add("zone-wrong-flash")),
+                new KeyFrame(Duration.millis(300), e -> zone.getStyleClass().remove("zone-wrong-flash")));
+        flash.play();
     }
 }

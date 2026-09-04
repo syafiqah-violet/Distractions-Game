@@ -8,7 +8,7 @@ import javafx.scene.layout.VBox;
 
 public class GameOverView extends VBox {
 
-    public GameOverView(GameState state, boolean won, Runnable onRestart) {
+    public GameOverView(GameState state, boolean won, boolean isNewHighScore, Runnable onRestart) {
         Label title = new Label(won ? "You cleared every level!" : "Game Over");
         title.getStyleClass().add("game-over-title");
 
@@ -16,11 +16,16 @@ public class GameOverView extends VBox {
         scoreLabel.textProperty().bind(state.scoreProperty().asString("Final score: %d"));
 
         Button restartButton = new Button("Play Again");
+        restartButton.getStyleClass().add("primary-button");
         restartButton.setOnAction(e -> onRestart.run());
 
         getStyleClass().add("game-over");
         setAlignment(Pos.CENTER);
         setSpacing(16);
-        getChildren().addAll(title, scoreLabel, restartButton);
+        getChildren().addAll(title, scoreLabel);
+        if (isNewHighScore) {
+            getChildren().add(new Label("New High Score!"));
+        }
+        getChildren().add(restartButton);
     }
 }

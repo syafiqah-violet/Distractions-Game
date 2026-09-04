@@ -25,7 +25,7 @@ src/main/java/com/fridgegame/
 ├── Launcher.java        # plain main() — keeps JavaFX out of the JAR manifest
 ├── FridgeGameApp.java   # Application; owns the Stage and the single Scene
 ├── model/               # FoodCategory, StorageZone, GroceryItem, Level, GameState
-├── data/                # ItemCatalog
+├── data/                # ItemCatalog, HighScoreStore
 ├── view/                # GroceryNode, ZoneNode, FridgeView, CounterView, HudView, LevelCompleteView, GameOverView
 └── controller/          # GameController, DragHandler
 
@@ -41,7 +41,7 @@ src/test/java/com/fridgegame/
 - [x] **Phase 3 — Drag & drop:** `DragHandler` wires the Dragboard API onto counter items and fridge zones
 - [x] **Phase 4 — Rules & scoring:** `GameController` scores correct/wrong drops, updates streak/lives, rejects wrong-zone drops
 - [x] **Phase 5 — Timer & levels:** countdown `Timeline`, level-complete banner with time bonus, game over + restart
-- [ ] Phase 6 — Polish
+- [x] **Phase 6 — Polish:** drop feedback animations, `HighScoreStore` persisted via `Preferences`, styles pass
 
 ## Pinned versions
 
