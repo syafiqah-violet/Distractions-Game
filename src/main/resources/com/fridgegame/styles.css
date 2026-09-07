@@ -101,7 +101,7 @@
     -fx-border-style: dashed;
 }
 
-.level-complete, .game-over {
+.level-complete {
     -fx-padding: 40px;
     -fx-background-color: white;
     -fx-background-radius: 16px;
@@ -110,10 +110,81 @@
     -fx-border-radius: 16px;
 }
 
-.level-complete-title, .game-over-title {
+.level-complete-title {
     -fx-font-size: 28px;
     -fx-font-weight: bold;
     -fx-text-fill: #33475b;
+}
+
+/* Full-window backdrop behind the game-over card (phase 6 polish). */
+.game-over-backdrop {
+    -fx-background-color: linear-gradient(to bottom right, #2c3e50, #1b2531);
+}
+
+.game-over-backdrop-win {
+    -fx-background-color: linear-gradient(to bottom right, #f6b93b, #e58e26);
+}
+
+.game-over-card {
+    -fx-padding: 48px 64px;
+    -fx-background-color: white;
+    -fx-background-radius: 20px;
+    -fx-border-color: rgba(255, 255, 255, 0.5);
+    -fx-border-width: 2px;
+    -fx-border-radius: 20px;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.35), 30, 0.2, 0, 10);
+}
+
+.game-over-emoji {
+    -fx-font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji";
+    -fx-font-size: 56px;
+}
+
+.game-over-title {
+    -fx-font-size: 30px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #33475b;
+}
+
+.game-over-title-win {
+    -fx-text-fill: #e58e26;
+}
+
+.game-over-subtitle {
+    -fx-font-size: 13px;
+    -fx-text-fill: #8a97a0;
+}
+
+.game-over-score-label {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #8a97a0;
+}
+
+.game-over-score-value {
+    -fx-font-size: 44px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #33475b;
+}
+
+.game-over-highscore {
+    -fx-font-size: 13px;
+    -fx-text-fill: #5c6b73;
+}
+
+.high-score-badge {
+    -fx-background-color: linear-gradient(to right, #f6b93b, #fad390);
+    -fx-background-radius: 20px;
+    -fx-padding: 8px 20px;
+    -fx-text-fill: #6d4c00;
+    -fx-font-weight: bold;
+    -fx-font-size: 14px;
+    -fx-effect: dropshadow(gaussian, rgba(246, 185, 59, 0.6), 15, 0.3, 0, 2);
+}
+
+.game-over-button {
+    -fx-font-size: 15px;
+    -fx-padding: 10px 32px;
 }
 
 /* Rejection flash, applied by DragHandler on a wrong drop (phase 6). */

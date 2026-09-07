@@ -105,7 +105,7 @@ public class FridgeGameApp extends Application {
     private void endGame(boolean won) {
         timer.stop();
         boolean isNewHighScore = highScoreStore.submit(state.getScore());
-        showScreen(new GameOverView(state, won, isNewHighScore, this::restart));
+        showScreen(new GameOverView(state, won, isNewHighScore, highScoreStore.get(), this::restart));
     }
 
     private void restart() {
