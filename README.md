@@ -26,10 +26,13 @@ src/main/java/com/fridgegame/
 ├── FridgeGameApp.java   # Application; owns the Stage and the single Scene
 ├── model/               # FoodCategory, StorageZone, GroceryItem, Level, GameState
 ├── data/                # ItemCatalog, HighScoreStore
-├── view/                # GroceryNode, ZoneNode, FridgeView, CounterView, HudView, LevelCompleteView, GameOverView
+├── view/                # GroceryNode, ZoneNode, FridgeView, CounterView, HudView,
+│                        # LevelCompleteView, GameOverView, ViewTransitions
 └── controller/          # GameController, DragHandler
 
-src/main/resources/com/fridgegame/styles.css
+src/main/resources/com/fridgegame/
+├── styles.css
+└── images/food_pixel/   # pixel-art icon per grocery item (rendered via ImageView)
 src/test/java/com/fridgegame/
 ```
 
@@ -41,7 +44,9 @@ src/test/java/com/fridgegame/
 - [x] **Phase 3 — Drag & drop:** `DragHandler` wires the Dragboard API onto counter items and fridge zones
 - [x] **Phase 4 — Rules & scoring:** `GameController` scores correct/wrong drops, updates streak/lives, rejects wrong-zone drops
 - [x] **Phase 5 — Timer & levels:** countdown `Timeline`, level-complete banner with time bonus, game over + restart
-- [x] **Phase 6 — Polish:** drop feedback animations, `HighScoreStore` persisted via `Preferences`, styles pass
+- [x] **Phase 6 — Polish:** drop feedback animations, `HighScoreStore` persisted via `Preferences`,
+      pixel-art icons in place of emoji, gradient-backdrop Game Over/Level Complete screens with a
+      shared fade+scale entrance animation, styles pass
 
 ## Pinned versions
 
