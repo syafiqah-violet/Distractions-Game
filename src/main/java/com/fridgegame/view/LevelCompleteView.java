@@ -4,26 +4,42 @@ import com.fridgegame.model.GameState;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
-public class LevelCompleteView extends VBox {
+public class LevelCompleteView extends StackPane {
 
     public LevelCompleteView(GameState state, int timeBonus, Runnable onNext) {
+        Label emoji = new Label("🎊");
+        emoji.getStyleClass().add("level-complete-emoji");
+
         Label title = new Label("Level " + state.getLevel() + " Complete!");
         title.getStyleClass().add("level-complete-title");
 
-        Label bonusLabel = new Label("Time bonus: +" + timeBonus);
+        Label bonusBadge = new Label("⏱ Time Bonus +" + timeBonus);
+        bonusBadge.getStyleClass().add("time-bonus-badge");
 
-        Label scoreLabel = new Label();
-        scoreLabel.textProperty().bind(state.scoreProperty().asString("Score: %d"));
+        Label scoreCaption = new Label("SCORE");
+        scoreCaption.getStyleClass().add("stat-label");
+
+        Label scoreValue = new Label();
+        scoreValue.textProperty().bind(state.scoreProperty().asString());
+        scoreValue.getStyleClass().add("stat-value");
+
+        VBox scoreBlock = new VBox(2, scoreCaption, scoreValue);
+        scoreBlock.setAlignment(Pos.CENTER);
 
         Button nextButton = new Button("Next Level");
-        nextButton.getStyleClass().add("primary-button");
+        nextButton.getStyleClass().addAll("primary-button", "large-action-button");
         nextButton.setOnAction(e -> onNext.run());
 
-        getStyleClass().add("level-complete");
-        setAlignment(Pos.CENTER);
-        setSpacing(16);
-        getChildren().addAll(title, bonusLabel, scoreLabel, nextButton);
+        VBox card = new VBox(16, emoji, title, bonusBadge, scoreBlock, nextButton);
+        card.getStyleClass().add("level-complete-card");
+        card.setAlignment(Pos.CENTER);
+
+        getStyleClass().add("level-complete-backdrop");
+        getChildren().add(card);
+
+        ViewTransitions.fadeScaleIn(card);
     }
 }

@@ -2,9 +2,6 @@ package com.fridgegame.view;
 
 import com.fridgegame.model.GameState;
 import javafx.animation.Animation;
-import javafx.animation.FadeTransition;
-import javafx.animation.Interpolator;
-import javafx.animation.ParallelTransition;
 import javafx.animation.ScaleTransition;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -26,11 +23,11 @@ public class GameOverView extends StackPane {
         }
 
         Label scoreCaption = new Label("FINAL SCORE");
-        scoreCaption.getStyleClass().add("game-over-score-label");
+        scoreCaption.getStyleClass().add("stat-label");
 
         Label scoreValue = new Label();
         scoreValue.textProperty().bind(state.scoreProperty().asString());
-        scoreValue.getStyleClass().add("game-over-score-value");
+        scoreValue.getStyleClass().add("stat-value");
 
         VBox scoreBlock = new VBox(2, scoreCaption, scoreValue);
         scoreBlock.setAlignment(Pos.CENTER);
@@ -39,7 +36,7 @@ public class GameOverView extends StackPane {
         highScoreLabel.getStyleClass().add("game-over-highscore");
 
         Button restartButton = new Button("Play Again");
-        restartButton.getStyleClass().addAll("primary-button", "game-over-button");
+        restartButton.getStyleClass().addAll("primary-button", "large-action-button");
         restartButton.setOnAction(e -> onRestart.run());
 
         VBox card = new VBox(16, emoji, title, scoreBlock);
@@ -68,23 +65,7 @@ public class GameOverView extends StackPane {
         }
         getChildren().add(card);
 
-        animateEntrance(card);
-    }
-
-    private void animateEntrance(VBox card) {
-        card.setOpacity(0);
-        card.setScaleX(0.85);
-        card.setScaleY(0.85);
-
-        FadeTransition fade = new FadeTransition(Duration.millis(380), card);
-        fade.setToValue(1);
-
-        ScaleTransition scale = new ScaleTransition(Duration.millis(380), card);
-        scale.setToX(1);
-        scale.setToY(1);
-        scale.setInterpolator(Interpolator.EASE_OUT);
-
-        new ParallelTransition(fade, scale).play();
+        ViewTransitions.fadeScaleIn(card);
     }
 
     private void pulse(Label badge) {
