@@ -12,22 +12,24 @@ import java.util.stream.Collectors;
 /** Master list of groceries and the levels built from them. */
 public final class ItemCatalog {
 
+    private static final String ICON_BASE = "/com/fridgegame/images/food_pixel/";
+
     public static final List<GroceryItem> ALL_ITEMS = List.of(
-            new GroceryItem("milk", "Milk", "🥛", FoodCategory.DAIRY),
-            new GroceryItem("cheese", "Cheese", "🧀", FoodCategory.DAIRY),
-            new GroceryItem("butter", "Butter", "🧈", FoodCategory.DAIRY),
-            new GroceryItem("lettuce", "Lettuce", "🥬", FoodCategory.PRODUCE),
-            new GroceryItem("carrot", "Carrot", "🥕", FoodCategory.PRODUCE),
-            new GroceryItem("tomato", "Tomato", "🍅", FoodCategory.PRODUCE),
-            new GroceryItem("broccoli", "Broccoli", "🥦", FoodCategory.PRODUCE),
-            new GroceryItem("chicken", "Chicken", "🍗", FoodCategory.MEAT),
-            new GroceryItem("steak", "Steak", "🥩", FoodCategory.MEAT),
-            new GroceryItem("fish", "Fish", "🐟", FoodCategory.MEAT),
-            new GroceryItem("juice", "Juice", "🧃", FoodCategory.DRINKS),
-            new GroceryItem("soda", "Soda", "🥤", FoodCategory.DRINKS),
-            new GroceryItem("water", "Water", "💧", FoodCategory.DRINKS),
-            new GroceryItem("ice_cream", "Ice Cream", "🍦", FoodCategory.FROZEN),
-            new GroceryItem("ice", "Ice", "🧊", FoodCategory.FROZEN)
+            new GroceryItem("milk", "Milk", ICON_BASE + "milk.png", FoodCategory.DAIRY),
+            new GroceryItem("cheese", "Cheese", ICON_BASE + "cheese.png", FoodCategory.DAIRY),
+            new GroceryItem("butter", "Butter", ICON_BASE + "butter.png", FoodCategory.DAIRY),
+            new GroceryItem("lettuce", "Lettuce", ICON_BASE + "lettuce.png", FoodCategory.PRODUCE),
+            new GroceryItem("carrot", "Carrot", ICON_BASE + "carrot.png", FoodCategory.PRODUCE),
+            new GroceryItem("tomato", "Tomato", ICON_BASE + "tomato.png", FoodCategory.PRODUCE),
+            new GroceryItem("broccoli", "Broccoli", ICON_BASE + "broccoli.png", FoodCategory.PRODUCE),
+            new GroceryItem("chicken", "Chicken", ICON_BASE + "chicken.png", FoodCategory.MEAT),
+            new GroceryItem("steak", "Steak", ICON_BASE + "steak.png", FoodCategory.MEAT),
+            new GroceryItem("fish", "Fish", ICON_BASE + "fish.png", FoodCategory.MEAT),
+            new GroceryItem("juice", "Juice", ICON_BASE + "juice.png", FoodCategory.DRINKS),
+            new GroceryItem("soda", "Soda", ICON_BASE + "soda.png", FoodCategory.DRINKS),
+            new GroceryItem("water", "Water", ICON_BASE + "water.png", FoodCategory.DRINKS),
+            new GroceryItem("ice_cream", "Ice Cream", ICON_BASE + "ice_cream.png", FoodCategory.FROZEN),
+            new GroceryItem("ice", "Ice", ICON_BASE + "ice.png", FoodCategory.FROZEN)
     );
 
     private static final Map<String, GroceryItem> BY_ID = ALL_ITEMS.stream()

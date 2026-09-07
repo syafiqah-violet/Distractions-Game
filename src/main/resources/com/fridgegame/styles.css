@@ -21,7 +21,7 @@
 }
 
 .fridge {
-    -fx-pref-width: 340px;
+    -fx-pref-width: 640px;
     -fx-padding: 12px;
     -fx-background-color: #c9d1d6;
     -fx-background-radius: 12px;
@@ -87,11 +87,6 @@
     -fx-background-radius: 10px;
     -fx-border-color: #d5dce1;
     -fx-border-radius: 10px;
-}
-
-.grocery-emoji {
-    -fx-font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji";
-    -fx-font-size: 32px;
 }
 
 .grocery-name {

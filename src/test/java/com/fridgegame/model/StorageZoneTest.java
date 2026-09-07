@@ -10,9 +10,9 @@ import org.junit.jupiter.api.Test;
 class StorageZoneTest {
 
     private static final GroceryItem LETTUCE =
-            new GroceryItem("lettuce", "Lettuce", "🥬", FoodCategory.PRODUCE);
+            new GroceryItem("lettuce", "Lettuce", "/com/fridgegame/images/food_pixel/lettuce.png", FoodCategory.PRODUCE);
     private static final GroceryItem MILK =
-            new GroceryItem("milk", "Milk", "🥛", FoodCategory.DAIRY);
+            new GroceryItem("milk", "Milk", "/com/fridgegame/images/food_pixel/milk.png", FoodCategory.DAIRY);
 
     @Test
     void crisperAcceptsProduceButNotDairy() {
@@ -32,7 +32,7 @@ class StorageZoneTest {
         for (StorageZone zone : StorageZone.values()) {
             FoodCategory matchingCategory = expected.get(zone);
             for (FoodCategory category : FoodCategory.values()) {
-                GroceryItem probe = new GroceryItem("probe", "Probe", "?", category);
+                GroceryItem probe = new GroceryItem("probe", "Probe", "/com/fridgegame/images/food_pixel/probe.png", category);
                 boolean shouldAccept = category == matchingCategory;
                 assertTrue(zone.accepts(probe) == shouldAccept,
                         zone + " accepting " + category + " should be " + shouldAccept);

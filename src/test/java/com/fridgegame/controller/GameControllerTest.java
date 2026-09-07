@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 class GameControllerTest {
 
     private static final GroceryItem LETTUCE =
-            new GroceryItem("lettuce", "Lettuce", "🥬", FoodCategory.PRODUCE);
+            new GroceryItem("lettuce", "Lettuce", "/com/fridgegame/images/food_pixel/lettuce.png", FoodCategory.PRODUCE);
 
     @Test
     void correctDropFromZeroStreakAwardsBasePoints() {
