@@ -15,8 +15,8 @@ public class GroceryNode extends VBox {
         this.item = item;
 
         ImageView icon = new ImageView(new Image(getClass().getResourceAsStream(item.iconPath())));
-        icon.setFitWidth(40);
-        icon.setFitHeight(40);
+        icon.setFitWidth(50);
+        icon.setFitHeight(50);
         icon.setPreserveRatio(true);
         icon.setSmooth(false);
         icon.getStyleClass().add("grocery-icon");
