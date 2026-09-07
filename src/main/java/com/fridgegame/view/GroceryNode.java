@@ -3,6 +3,8 @@ package com.fridgegame.view;
 import com.fridgegame.model.GroceryItem;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.VBox;
 
 public class GroceryNode extends VBox {
@@ -12,8 +14,12 @@ public class GroceryNode extends VBox {
     public GroceryNode(GroceryItem item) {
         this.item = item;
 
-        Label emoji = new Label(item.emoji());
-        emoji.getStyleClass().add("grocery-emoji");
+        ImageView icon = new ImageView(new Image(getClass().getResourceAsStream(item.iconPath())));
+        icon.setFitWidth(40);
+        icon.setFitHeight(40);
+        icon.setPreserveRatio(true);
+        icon.setSmooth(false);
+        icon.getStyleClass().add("grocery-icon");
 
         Label name = new Label(item.name());
         name.getStyleClass().add("grocery-name");
@@ -22,7 +28,7 @@ public class GroceryNode extends VBox {
         setAlignment(Pos.CENTER);
         setPrefSize(80, 90);
         setMinSize(80, 90);
-        getChildren().addAll(emoji, name);
+        getChildren().addAll(icon, name);
     }
 
     public GroceryItem getItem() {
