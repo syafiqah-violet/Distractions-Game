@@ -2,7 +2,6 @@ package com.fridgegame.controller;
 
 import com.fridgegame.data.ItemCatalog;
 import com.fridgegame.model.GroceryItem;
-import com.fridgegame.view.CounterView;
 import com.fridgegame.view.FridgeView;
 import com.fridgegame.view.GroceryNode;
 import com.fridgegame.view.ZoneNode;
@@ -16,24 +15,33 @@ import javafx.scene.input.TransferMode;
 import javafx.scene.layout.Pane;
 import javafx.util.Duration;
 
-/** Wires the Dragboard API onto grocery/zone nodes. No rules or scoring yet (Phase 4). */
+/**
+ * Wires the Dragboard API onto grocery and zone nodes.
+ *
+ * <p>Split in two because groceries no longer all exist at level start: zones are wired
+ * once per level via {@link #wireZones}, while each item earned from a cleared row is
+ * made draggable on arrival via {@link #makeDraggable}.
+ */
 public final class DragHandler {
 
     private DragHandler() {
     }
 
-    public static void wire(FridgeView fridge, CounterView counter, GameController controller) {
-        for (Node child : counter.getBody().getChildren()) {
-            if (child instanceof GroceryNode node) {
-                installDragSource(node);
-            }
-        }
+    /** Installs the drop targets for a level's fridge. Call once per level. */
+    public static void wireZones(FridgeView fridge, GameController controller) {
         for (ZoneNode zone : fridge.getZones()) {
             installDropTarget(zone, controller);
         }
     }
 
-    private static void installDragSource(GroceryNode node) {
+    /**
+     * Makes one counter item draggable.
+     *
+     * <p>{@code tetris} is notified for the duration of the gesture so gravity can pause —
+     * JavaFX runs a nested event loop during a drag and would otherwise leave the player
+     * unable to steer a falling piece.
+     */
+    public static void makeDraggable(GroceryNode node, TetrisController tetris) {
         node.setOnDragDetected(e -> {
             Dragboard db = node.startDragAndDrop(TransferMode.MOVE);
             ClipboardContent content = new ClipboardContent();
@@ -41,11 +49,13 @@ public final class DragHandler {
             db.setContent(content);
             db.setDragView(node.snapshot(null, null));
             node.setOpacity(0.3);
+            tetris.setDraggingGrocery(true);
             e.consume();
         });
 
         node.setOnDragDone(e -> {
             node.setOpacity(1.0);
+            tetris.setDraggingGrocery(false);
             if (e.getTransferMode() == TransferMode.MOVE) {
                 ((Pane) node.getParent()).getChildren().remove(node);
             }

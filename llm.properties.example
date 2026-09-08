@@ -1,0 +1,16 @@
+# Local LLM opponent settings.
+#
+# Copy to llm.properties (gitignored) and edit, or set the equivalent environment
+# variables, which take precedence:
+#
+#   LLM_BASE_URL   LLM_MODEL   LLM_API_KEY
+#
+# The endpoint currently accepts unauthenticated requests, so llm.apiKey may be left
+# blank — the Authorization header is then omitted entirely.
+#
+# If the endpoint is unreachable the game still plays: the opponent falls back to the
+# built-in heuristic bot and the board header shows it is offline.
+
+llm.baseUrl=http://172.23.35.112:8001
+llm.model=qwen3.6-35b
+llm.apiKey=

@@ -19,6 +19,10 @@ public class LevelCompleteView extends StackPane {
         Label bonusBadge = new Label("⏱ Time Bonus +" + timeBonus);
         bonusBadge.getStyleClass().add("time-bonus-badge");
 
+        Label rowsEarned = new Label(
+                state.getRowsCleared() + " rows cleared to earn your groceries");
+        rowsEarned.getStyleClass().add("game-over-subtitle");
+
         Label scoreCaption = new Label("SCORE");
         scoreCaption.getStyleClass().add("stat-label");
 
@@ -33,7 +37,7 @@ public class LevelCompleteView extends StackPane {
         nextButton.getStyleClass().addAll("primary-button", "large-action-button");
         nextButton.setOnAction(e -> onNext.run());
 
-        VBox card = new VBox(16, emoji, title, bonusBadge, scoreBlock, nextButton);
+        VBox card = new VBox(16, emoji, title, rowsEarned, bonusBadge, scoreBlock, nextButton);
         card.getStyleClass().add("level-complete-card");
         card.setAlignment(Pos.CENTER);
 

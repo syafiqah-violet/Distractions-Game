@@ -35,13 +35,20 @@ public final class ItemCatalog {
     private static final Map<String, GroceryItem> BY_ID = ALL_ITEMS.stream()
             .collect(Collectors.toUnmodifiableMap(GroceryItem::id, Function.identity()));
 
+    /**
+     * The three rounds. Every level is 60 seconds — the item quota is what you have to
+     * earn from Tetris in that time, and difficulty comes from gravity and the opponent
+     * rather than from a shorter clock.
+     *
+     * <p>These six numbers per level are the whole difficulty curve; retune here.
+     */
     public static final List<Level> LEVELS = List.of(
-            new Level(1, itemsById("milk", "lettuce", "chicken", "juice", "ice"), 60),
-            new Level(2, itemsById(
-                    "milk", "cheese", "lettuce", "carrot", "chicken", "steak", "juice", "ice_cream"), 50),
-            new Level(3, itemsById(
-                    "milk", "cheese", "butter", "lettuce", "carrot", "tomato", "broccoli",
-                    "chicken", "steak", "fish", "juice", "soda"), 45)
+            //        n  items                                                     time  grav  ai    garbage
+            new Level(1, itemsById("milk", "lettuce", "chicken", "juice"),          60,   700,  2000, false),
+            new Level(2, itemsById("milk", "cheese", "lettuce", "chicken",
+                    "juice", "ice_cream"),                                          60,   550,  1600, true),
+            new Level(3, itemsById("milk", "cheese", "lettuce", "carrot", "tomato",
+                    "chicken", "juice", "ice_cream"),                               60,   420,  1300, true)
     );
 
     private ItemCatalog() {

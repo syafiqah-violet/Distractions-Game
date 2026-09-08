@@ -15,13 +15,45 @@
     -fx-background-radius: 8px;
     -fx-border-color: #d5dce1;
     -fx-border-radius: 8px;
+}
+
+.hud-stat {
     -fx-font-size: 15px;
     -fx-font-weight: bold;
     -fx-text-fill: #33475b;
 }
 
+.hud-rows   { -fx-text-fill: #2980b9; }
+.hud-quota  { -fx-text-fill: #128a5e; }
+.hud-time   { -fx-text-fill: #c0392b; }
+.hud-muted  { -fx-text-fill: #8a97a0; -fx-font-weight: normal; }
+
+/* Tetris half of the split screen (phase T2). */
+.versus {
+    -fx-padding: 0;
+}
+
+.board-header {
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #5c6b73;
+}
+
+.board-hint {
+    -fx-font-size: 10px;
+    -fx-text-fill: #8a97a0;
+}
+
+/* Which brain is driving the second board (phase T4/T5). */
+.agent-status {
+    -fx-font-size: 10px;
+    -fx-text-alignment: center;
+}
+
+.agent-status-online  { -fx-text-fill: #128a5e; }
+.agent-status-offline { -fx-text-fill: #a4b0b8; }
+
 .fridge {
-    -fx-pref-width: 640px;
     -fx-padding: 12px;
     -fx-background-color: #c9d1d6;
     -fx-background-radius: 12px;
@@ -80,6 +112,14 @@
 
 .counter-body {
     -fx-padding: 4px;
+}
+
+/* Shown only while nothing has been earned yet (phase T3). */
+.counter-placeholder {
+    -fx-padding: 12px 6px;
+    -fx-font-size: 11px;
+    -fx-text-fill: #a4b0b8;
+    -fx-text-alignment: center;
 }
 
 .grocery-node {
