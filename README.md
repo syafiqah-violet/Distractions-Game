@@ -1,20 +1,24 @@
 # Refrigerator Sorting Game
 
-JavaFX game in two halves on one 60-second clock: play **Tetris against a local LLM** to
-earn groceries, then drag each earned item into the right fridge zone. Build plan and
-design decisions live in [FRIDGE_GAME_PLAN.md](FRIDGE_GAME_PLAN.md).
+JavaFX game in two halves: play **Tetris** to earn groceries, then drag each earned item
+into the right fridge zone. Three levels, each teaching a different thing — and a local
+LLM plays the rival commentator and the difficulty director rather than playing Tetris.
 
-**Every grocery has to be earned.** Clear one row of Tetris, get one item on the counter;
-clear four at once, get four. Sort the whole level quota before time runs out to advance.
-Meanwhile an opponent board is driven by a local LLM — when it clears N rows it pushes
-N−1 garbage rows into your stack.
+| Level | What you do | Clock | Pass | Fail |
+|---|---|---|---|---|
+| 1 | Sort only — the shopping is already on the counter, no board | 60s | every item in the right zone | clock expires with items left |
+| 2 | Tetris only — nothing to sort, score as much as you can | 60s | survive the clock, having cleared ≥ 1 row | 0 rows when it expires |
+| 3 | Both — clear a row to earn a grocery, then sort it | 3 min | every item sorted | clock expires with items left |
+
+Losing all three lives ends the run on any level. A wrong drop and a top-out each cost
+one.
 
 ## Requirements
 
 - JDK 21+ (found: Temurin 21.0.7)
 - No Maven install needed — use the bundled wrapper (`mvnw` / `mvnw.cmd`)
-- Optional: a reachable OpenAI-compatible LLM endpoint. Without one the game plays
-  identically against a built-in heuristic bot.
+- Optional: a reachable OpenAI-compatible LLM endpoint. Without one every level plays
+  identically — you just lose the rival's commentary and the adaptive difficulty.
 
 ## Commands
 
@@ -40,13 +44,56 @@ Gravity pauses while you are mid-drag — JavaFX runs a nested event loop during
 gesture and would not deliver your key presses. The round clock keeps running, so
 stalling a drag costs you time and gains you nothing.
 
-## The LLM opponent
+## What the LLM actually does
 
-The second board is played by an agent behind the `TetrisAgent` interface. On startup the
-game probes the configured endpoint; if it answers, each of the opponent's pieces is
-placed by the model, otherwise the local heuristic bot takes over. The caption under the
-opponent's board always says which is driving, and counts `N LLM · N fallback` so a
-silently-degrading endpoint is visible rather than just making the opponent dull.
+It used to play the opponent's Tetris board, one `{"rotation":R,"column":C}` per piece.
+That worked — 10/10 legal placements at ~843ms — and it was invisible: nobody can watch a
+half-scale board and infer that a model chose those placements. So it now has two jobs it
+is genuinely better at.
+
+**Rival commentator** (`LlmCommentator`, level 3 only, bottom-right card). One dry line
+reacting to the specific thing that just happened: milk in the freezer, a placement that
+buried two cells, a top-out, a five-item streak, thirty seconds left with four unsorted.
+A caption is read in half a second, which is the attention a player has spare mid-game.
+
+`CommentaryController` is the part that makes it playable. Events fire faster than anyone
+reads — one four-row clear plus two drops is five in a second — so: one request in flight
+at a time, events folded into a single pending slot where the highest priority wins, a
+five-second floor between displayed lines, and replies older than eight seconds thrown
+away. A stale taunt reads as the rival being confused, which is worse than silence.
+
+**Difficulty director** (`LlmLevelDirector`, between levels). Reads what you actually did
+— rows per piece, drop accuracy, top-outs, how much clock was left — and sets the next
+level's gravity, quota size and item mix, instead of the fixed numbers in
+`ItemCatalog.LEVELS`. It runs while you read the level-complete card, so its latency is
+free; if the answer has not landed when you click Next Level, the authored level is used
+rather than waiting.
+
+Every value it returns is **clamped in Java**. Guided decoding constrains the reply's
+shape, not its judgement: a 40ms gravity is schema-valid and unplayable. Mode, clock,
+level number and required rows are never asked for at all — those are the level design,
+and a model rewriting them could turn level 2 into something other than a Tetris tutorial.
+
+### Watching it think
+
+Every model utterance prints to stdout, so `javafx:run` shows what it is doing:
+
+```
+[llm] probing qwen3.6-35b @ http://172.23.35.112:8001
+[llm] online: qwen3.6-35b @ http://172.23.35.112:8001
+[commentary] WRONG_DROP - they put Milk in the Freezer - wrong zone  (score=35 lives=3 time=142s unsorted=5 rows=2)
+LLM thinking: "Milk in the freezer. Bold. Wrong, but bold."
+[commentary] NEW_HOLES - that placement buried 2 cell(s) they can no longer reach  (...)
+LLM thinking: "You just buried two cells. I would apologise to them."
+[llm] commentary dropped as stale after 8400ms - "Too slow again."
+[director] level 3 stats: mode=TETRIS_ONLY pieces=30 rows=4 clear=0.13 accuracy=n/a topouts=1 margin=0.00 (0s of 60s left)
+LLM thinking: "They topped out once and cleared slowly, so ease the gravity and keep the quota small."
+[director] level 3 <- gravity=620ms items=5 emphasis=[DAIRY, PRODUCE]
+```
+
+`LLM thinking:` is reserved for the model's own words, verbatim. Anything the game decided
+— throttle drops, clamps, connection state — goes through `[llm]`, `[commentary]` or
+`[director]`, so the two are never confused.
 
 ### Configuration
 
@@ -63,8 +110,8 @@ to get started.
 No key is compiled into the source or the jar. The endpoint currently accepts
 unauthenticated requests, so an absent key is a supported configuration.
 
-To confirm the offline path, point it at a dead port and check the caption reads
-`local bot · Connection refused`:
+To confirm the offline path, point it at a dead port. All three levels must still play
+through, with no commentary card and `[llm] offline (endpoint unreachable)` on the console:
 
 ```bash
 LLM_BASE_URL=http://127.0.0.1:9 ./mvnw javafx:run
@@ -84,19 +131,28 @@ Both were established by probing the live endpoint, and both are covered by
    every POST returns `400 Field required: body`. `curl` works by default because it
    sends HTTP/1.1, which makes this a genuinely confusing failure to diagnose.
 
-Measured against `qwen3.6-35b` on the DGX box: 10/10 legal placements, ~843ms average,
-1030ms worst case — inside the tightest per-move deadline (1300ms at level 3).
+Commentary gets a 3s budget and a 48-token cap; the director gets 6s and 140 tokens,
+since it runs behind an overlay where latency costs nothing.
 
 ## Difficulty
 
-All levels run 60 seconds; difficulty comes from gravity and the opponent, not a shorter
-clock. Tune these in `ItemCatalog.LEVELS`.
+`ItemCatalog.LEVELS` holds **templates** — mode, clock and required rows are authored and
+fixed. Gravity and the quota are starting points the director may retune for levels 2 and
+3 from measured performance.
 
-| Level | Items to earn & sort | Your gravity | Opponent cadence | Sends garbage |
-|---|---|---|---|---|
-| 1 | 4 | 700ms | 2000ms | no |
-| 2 | 6 | 550ms | 1600ms | yes (N−1) |
-| 3 | 8 | 420ms | 1300ms | yes (N−1) |
+| Level | Mode | Clock | Quota | Gravity | Rows required |
+|---|---|---|---|---|---|
+| 1 | `SORT_ONLY` | 60s | 4 (given) | — | — |
+| 2 | `TETRIS_ONLY` | 60s | — | 550ms | 1 |
+| 3 | `COMBINED` | 180s | 6 (earned) | 480ms | — |
+
+Director bounds: gravity 300–800ms, quota 3–10 items. A quota is never drawn from a single
+food category, so the fridge stays a sorting problem.
+
+Scoring: a correct drop pays 10 × (1 + streak/5); a wrong one costs 5 and a life. Cleared
+rows pay 20/60/150/400 for 1/2/3/4 at once — steeply superlinear, because on level 2 there
+are no groceries to earn, so stacking has to be worth the risk. Finishing a sorting level
+early pays 2 points per second left.
 
 ## Layout
 
@@ -104,21 +160,34 @@ clock. Tune these in `ItemCatalog.LEVELS`.
 src/main/java/com/fridgegame/
 ├── Launcher.java        # plain main() — keeps JavaFX out of the JAR manifest
 ├── FridgeGameApp.java   # Application; owns the Stage, the Scene and the level flow
-├── model/               # FoodCategory, StorageZone, GroceryItem, Level, GameState,
-│                        # Cell, Tetromino, TetrisBoard, TetrisMove, StepResult
-├── data/                # ItemCatalog, HighScoreStore
-├── ai/                  # TetrisAgent (interface), HeuristicTetrisAgent
-├── llm/                 # LlmConfig, LlmClient, JsonChat, LlmTetrisAgent
+├── model/               # FoodCategory, StorageZone, GroceryItem, Level, LevelMode,
+│                        # GameState, Cell, Tetromino, TetrisBoard, TetrisMove,
+│                        # StepResult, BoardMetrics
+├── data/                # ItemCatalog (items + level templates), HighScoreStore
+├── director/            # LevelDirector (interface), FixedLevelDirector, LevelStats
+├── llm/                 # LlmConfig, LlmClient, JsonChat, LlmLog,
+│                        # LlmCommentator, CommentaryEvent, LlmLevelDirector
 ├── view/                # GroceryNode, ZoneNode, FridgeView, CounterView, HudView,
-│                        # TetrisBoardView, VersusView,
+│                        # TetrisBoardView, TetrisPanel, CommentaryView,
 │                        # LevelCompleteView, GameOverView, ViewTransitions
-└── controller/          # GameController, DragHandler, TetrisController, AgentController
+└── controller/          # GameController, DragHandler, TetrisController,
+                         # CommentaryController
 
 src/main/resources/com/fridgegame/
 ├── styles.css
 └── images/food_pixel/   # pixel-art icon per grocery item (rendered via ImageView)
 src/test/java/com/fridgegame/
 ```
+
+The level's `LevelMode` decides what exists on screen: a sorting level builds no board and
+never starts gravity, a Tetris level builds no counter or fridge at all, and `HudView`
+hides the stats that level cannot change — "Rows: 0" on a boardless level reads as a goal
+you are failing rather than one that does not exist.
+
+`CommentaryView` floats in a `StackPane` over the game so it takes no space from the
+board or the fridge. It is `mouseTransparent`, which is load-bearing: it overlaps the
+Freezer zone, and a card that intercepted events would silently swallow drops in the
+bottom-right corner.
 
 `model/` has no JavaFX imports at all — the entire Tetris engine and every game rule is
 plain Java, which is why the suite runs headless with no display and no network.
@@ -127,31 +196,41 @@ scene graph is not doing layout passes 20 times a second while you drag grocerie
 
 ## Progress
 
-- [x] **Phase 0 — Setup:** pom, wrapper, `Launcher`, blank 1000×700 window
-- [x] **Phase 1 — Model:** enums, `GroceryItem`, `Level`, `GameState`, `ItemCatalog` (15 items, 3 levels)
+- [x] **Phase 0 — Setup:** pom, wrapper, `Launcher`, blank window
+- [x] **Phase 1 — Model:** enums, `GroceryItem`, `Level`, `GameState`, `ItemCatalog` (15 items)
 - [x] **Phase 2 — Static layout:** `FridgeView`, `ZoneNode`, `CounterView`, `GroceryNode`, `HudView`
 - [x] **Phase 3 — Drag & drop:** `DragHandler` wires the Dragboard API onto counter items and fridge zones
-- [x] **Phase 4 — Rules & scoring:** `GameController` scores correct/wrong drops, updates streak/lives, rejects wrong-zone drops
-- [x] **Phase 5 — Timer & levels:** countdown `Timeline`, level-complete banner with time bonus, game over + restart
-- [x] **Phase 6 — Polish:** drop feedback animations, `HighScoreStore` persisted via `Preferences`,
-      pixel-art icons in place of emoji, gradient-backdrop Game Over/Level Complete screens with a
-      shared fade+scale entrance animation, styles pass
+- [x] **Phase 4 — Rules & scoring:** `GameController` scores correct/wrong drops, updates streak/lives
+- [x] **Phase 5 — Timer & levels:** countdown `Timeline`, level-complete banner, game over + restart
+- [x] **Phase 6 — Polish:** drop feedback animations, `HighScoreStore` via `Preferences`,
+      pixel-art icons, gradient overlay screens with a shared fade+scale entrance
 
-### Tetris versus an LLM agent
+### Tetris
 
 - [x] **T1 — Engine:** `Tetromino` (7 pieces × 4 normalised rotations), `TetrisBoard`
-      (10×20, 7-bag randomiser, line clears, garbage, top-out) — pure Java, 33 tests
+      (10×20, 7-bag randomiser, line clears, top-out) — pure Java
 - [x] **T2 — Player board:** `TetrisBoardView` on a `Canvas` with a landing ghost,
       `TetrisController` gravity `Timeline`, keys bound as a Scene event *filter* so the
       counter's `ScrollPane` cannot swallow the arrows
 - [x] **T3 — Rows buy groceries:** counter starts empty; `awardClearedRows` releases one
-      item per row, surplus rows pay points instead. Gravity pauses during a drag gesture
-- [x] **T4 — Opponent:** second board, `HeuristicTetrisAgent` (lines/height/holes/bumpiness),
-      N−1 garbage exchange, top-out costs a life and wipes the board
-- [x] **T5 — LLM agent:** `LlmTetrisAgent` behind the same interface, guided-decoding JSON,
-      startup reachability probe, per-move fallback to the bot on a late or illegal answer
-- [x] **T6 — Polish:** green flash on your clears, red flash on incoming garbage, agent
-      caption with LLM/fallback counts, rows-earned line on the level-complete card
+      item per row and pays Tetris-style points. Gravity pauses during a drag gesture
+
+### Level structure and the LLM's real job
+
+- [x] **L1 — One mechanic per level:** `LevelMode` splits sorting practice, Tetris practice
+      and the combined round; the clock expiring is a pass on level 2 and a fail elsewhere
+- [x] **L2 — Rival commentator:** `LlmCommentator` behind the existing `JsonChat` seam,
+      guided-decoding JSON, `CommentaryController` throttle (one in flight, priority
+      folding, five-second floor, stale replies dropped)
+- [x] **L3 — Difficulty director:** `LlmLevelDirector` sets the next level's gravity, quota
+      and item mix from measured `LevelStats`; every field clamped, `FixedLevelDirector`
+      as the offline fallback
+- [x] **L4 — Observability:** `LlmLog` prints `LLM thinking: "…"` for the model's own words
+      and `[llm]`/`[commentary]`/`[director]` for everything the game decided
+- [x] **L5 — Opponent removed:** the second board, `ai/` package, `AgentController`,
+      `LlmTetrisAgent` and the garbage exchange are gone; the stack-shape maths from the
+      heuristic bot survives as `BoardMetrics`, which is how the commentator notices a
+      placement that buried cells
 
 ## Pinned versions
 

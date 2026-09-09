@@ -1,4 +1,5 @@
-# Local LLM opponent settings.
+# Local LLM settings. The model plays the rival commentator on level 3 and the
+# between-levels difficulty director.
 #
 # Copy to llm.properties (gitignored) and edit, or set the equivalent environment
 # variables, which take precedence:
@@ -8,9 +9,10 @@
 # The endpoint currently accepts unauthenticated requests, so llm.apiKey may be left
 # blank — the Authorization header is then omitted entirely.
 #
-# If the endpoint is unreachable the game still plays: the opponent falls back to the
-# built-in heuristic bot and the board header shows it is offline.
+# If the endpoint is unreachable every level still plays through unchanged: the rival
+# simply stays quiet and each level uses its authored difficulty. The console says so
+# once at startup.
 
-llm.baseUrl=http://172.23.35.112:8001
-llm.model=qwen3.6-35b
+llm.baseUrl=
+llm.model=
 llm.apiKey=
