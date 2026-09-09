@@ -30,6 +30,7 @@ public class TetrisController {
 
     private boolean active;
     private boolean draggingGrocery;
+    private boolean paused;
     private int piecesLocked;
 
     public TetrisController(long seed) {
@@ -82,14 +83,18 @@ public class TetrisController {
                 new KeyFrame(Duration.millis(gravityMillis), e -> step()));
         active = true;
         draggingGrocery = false;
+        paused = false;
         piecesLocked = 0;
-        gravity.play();
+        updateGravity();
         onChanged.run();
     }
 
     /** Halts gravity and stops accepting input — used while an overlay screen is up. */
     public void stop() {
         active = false;
+        // A SORT_ONLY level never calls startLevel, so this is the only place the pause
+        // mirror gets cleared before the next level that does have a board.
+        paused = false;
         gravity.stop();
     }
 
@@ -105,22 +110,50 @@ public class TetrisController {
             return;
         }
         draggingGrocery = dragging;
-        if (!active) {
+        updateGravity();
+    }
+
+    /** Mirrors the app-wide pause; see {@link #updateGravity()} for why it is not local. */
+    public void setPaused(boolean value) {
+        if (paused == value) {
             return;
         }
-        if (dragging) {
-            gravity.pause();
-        } else {
-            gravity.play();
-        }
+        paused = value;
+        updateGravity();
+    }
+
+    public boolean isPaused() {
+        return paused;
     }
 
     /** Recovers from a top-out: the caller has already charged a life. */
     public void resetAfterTopOut() {
         board.clear();
         onChanged.run();
-        if (active && !draggingGrocery) {
+        updateGravity();
+    }
+
+    /**
+     * The single decision about whether the piece should be falling right now.
+     *
+     * <p>Four separate conditions can stop gravity — the level not being live, an app-wide
+     * pause, a drag in flight, and a topped-out board — and each used to call
+     * {@code gravity.pause()} or {@code play()} for itself. That is fine until two of them
+     * overlap, at which point whichever ends first resumes a game the other still wants
+     * frozen. Routing every transition through one predicate means no condition can resume
+     * unilaterally: pausing mid-drag and then resuming leaves the piece still, correctly,
+     * because the drag has not finished.
+     *
+     * <p>{@code pause()} rather than {@code stop()} on the way down, because {@code stop()}
+     * rewinds the playhead — a player who tapped pause twice a second would have a piece
+     * that never fell. {@code pause()} on an already-stopped {@link Timeline} is a no-op,
+     * which is what makes the else branch safe when {@link #stop()} has already run.
+     */
+    private void updateGravity() {
+        if (active && !paused && !draggingGrocery && !board.isToppedOut()) {
             gravity.play();
+        } else {
+            gravity.pause();
         }
     }
 
@@ -137,6 +170,14 @@ public class TetrisController {
     public void installKeys(Scene scene) {
         scene.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
             if (!active || board.isToppedOut()) {
+                return;
+            }
+            if (paused) {
+                // Consumed, not ignored: a bare return lets SPACE reach the pause
+                // overlay's Resume button, so mashing hard-drop would unpause the game.
+                if (isGameKey(event.getCode())) {
+                    event.consume();
+                }
                 return;
             }
             boolean handled = switch (event.getCode()) {
@@ -183,7 +224,9 @@ public class TetrisController {
             onRowsCleared.accept(result.rowsCleared());
         }
         if (result.toppedOut()) {
-            gravity.pause();
+            // board.isToppedOut() is true here, so this pauses — same as the old explicit
+            // gravity.pause(), but the top-out is no longer a fifth owner of the timeline.
+            updateGravity();
             onTopOut.run();
             return;
         }

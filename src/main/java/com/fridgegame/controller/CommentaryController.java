@@ -48,6 +48,14 @@ public class CommentaryController {
     private long lastShownAt;
     private long lastActivityAt;
 
+    /**
+     * When the current pause began. Paired with {@link #pauseMarked} rather than using 0
+     * as the "not paused" sentinel, because the injected clock's origin is arbitrary and a
+     * pause that began at exactly 0 would otherwise be indistinguishable from no pause.
+     */
+    private long pausedAt;
+    private boolean pauseMarked;
+
     /** Fed back into the next prompt so the rival does not repeat itself verbatim. */
     private String lastLine;
 
@@ -83,11 +91,68 @@ public class CommentaryController {
         lastShownAt = 0;
         lastLine = null;
         lastActivityAt = clock.getAsLong();
+        pauseMarked = false;
     }
 
     public void stop() {
         enabled = false;
         pending = null;
+    }
+
+    /** Marks the start of a pause, so {@link #noteResumed} can discount it. */
+    public void notePauseStarted() {
+        if (enabled) {
+            pausedAt = clock.getAsLong();
+            pauseMarked = true;
+        }
+    }
+
+    /**
+     * Discounts a pause from every elapsed-time decision this class makes.
+     *
+     * <p>Both thresholds here are measured against absolute wall-clock stamps, so without
+     * this a pause simply looks like time passing. Two things then go wrong on resume: the
+     * idle timer fires, accusing a player of staring at the screen during a pause they
+     * asked for, and the minimum gap between captions has silently elapsed, so the next
+     * line lands with no reading time before it. Shifting both stamps forward by the pause
+     * duration leaves every remaining interval exactly where the player left it.
+     *
+     * <p>Three of the guards look defensive but each has a reachable case:
+     *
+     * <ul>
+     *   <li>{@code lastShownAt != 0} — zero is the sentinel for "nothing shown yet". Shift
+     *       it and the gap check sees a future timestamp, silencing the rival for the whole
+     *       pause plus five seconds.</li>
+     *   <li>{@link Math#min} against now — a reply can land <i>during</i> the pause and set
+     *       {@code lastShownAt} to a mid-pause instant. Shifting that by the full duration
+     *       would push it into the future, with the same result.</li>
+     *   <li>{@link #pauseMarked} — the LLM probe can build this object while the game is
+     *       already paused, in which case this instance never saw the pause begin.</li>
+     * </ul>
+     *
+     * <p>Correctness here depends on the pause overlay actually covering the caption. It
+     * does — the card sits bottom-right under a full-window overlay. If that ever changes,
+     * shifting {@code lastShownAt} becomes wrong, because the player will have read the
+     * line during the pause and would be made to wait for it twice.
+     *
+     * <p>A request already in flight is deliberately left to expire: its deadline is a
+     * local in {@code dispatch}, and showing a pre-pause taunt afterwards would describe a
+     * moment the player has left — exactly what the staleness check exists to prevent.
+     */
+    public void noteResumed() {
+        if (!enabled || !pauseMarked) {
+            return;
+        }
+        long resumedAt = clock.getAsLong();
+        long shift = resumedAt - pausedAt;
+        pauseMarked = false;
+        if (shift <= 0) {
+            return; // a wall clock can step backwards; never rewind on one
+        }
+        if (lastShownAt != 0) {
+            lastShownAt = Math.min(lastShownAt + shift, resumedAt);
+        }
+        lastActivityAt = Math.min(lastActivityAt + shift, resumedAt);
     }
 
     public boolean isEnabled() {
@@ -175,8 +240,11 @@ public class CommentaryController {
             return;
         }
         if (now - requestedAt > STALE_AFTER_MILLIS) {
+            // Also the expected outcome for a reply that spanned a pause, which is why
+            // this no longer reads as purely an endpoint-latency complaint.
             LlmLog.note("commentary dropped as stale after "
-                    + (now - requestedAt) + "ms - \"" + line + "\"");
+                    + (now - requestedAt) + "ms (slow reply, or the game was paused) - \""
+                    + line + "\"");
             return;
         }
         lastShownAt = now;

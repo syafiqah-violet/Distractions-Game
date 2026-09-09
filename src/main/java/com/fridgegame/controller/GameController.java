@@ -35,6 +35,7 @@ public class GameController {
     private final Deque<GroceryItem> locked = new ArrayDeque<>();
 
     private Level level;
+    private boolean paused;
 
     // Measured performance for the current level; read by the director between levels.
     private int correctDrops;
@@ -108,6 +109,23 @@ public class GameController {
         this.onActivity = listener;
     }
 
+    /**
+     * Mirrors the app-wide pause, so a paused game cannot be scored against.
+     *
+     * <p>The pause overlay already swallows the mouse, so nothing should reach
+     * {@link #handleDrop} while this is set. It is here anyway because the overlay's block
+     * is a property of a stylesheet — one missing background colour and the node stops
+     * being a mouse target, silently, with the whole fridge live underneath and the clock
+     * frozen. This is the layer that makes that a cosmetic bug rather than free score.
+     */
+    public void setPaused(boolean value) {
+        this.paused = value;
+    }
+
+    public boolean isPaused() {
+        return paused;
+    }
+
     /** Everything the director needs to know about how the level just went. */
     public LevelStats snapshot(int piecesLocked) {
         return new LevelStats(
@@ -151,6 +169,9 @@ public class GameController {
 
     /** Applies scoring rules for dropping {@code item} into {@code zone}; returns whether it was correct. */
     public boolean handleDrop(GroceryItem item, StorageZone zone) {
+        if (paused) {
+            return false; // scores nothing, costs nothing, and counts as no activity
+        }
         boolean correct = zone.accepts(item);
         onActivity.run();
         if (correct) {
