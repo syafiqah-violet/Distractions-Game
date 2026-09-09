@@ -1,6 +1,9 @@
 target/
 .mvn/wrapper/maven-wrapper.jar
 
+# Local LLM endpoint config — may contain an API key. Copy from llm.properties.example.
+llm.properties
+
 # IDE
 .idea/
 *.iml

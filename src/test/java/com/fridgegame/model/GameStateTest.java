@@ -29,12 +29,23 @@ class GameStateTest {
     @Test
     void startLevelLoadsNumberAndTimeLimit() {
         GameState state = new GameState();
-        Level level = new Level(2, List.of(), 50);
+        Level level = new Level(2, LevelMode.COMBINED, List.of(), 50);
 
         state.startLevel(level);
 
         assertEquals(2, state.getLevel());
         assertEquals(50, state.getSecondsLeft());
+    }
+
+    @Test
+    void startLevelWithNoQuotaLeavesNothingToSort() {
+        GameState state = new GameState();
+        state.setItemsLeft(6);
+
+        state.startLevel(new Level(2, LevelMode.TETRIS_ONLY, List.of(), 60));
+
+        assertEquals(0, state.getItemsLeft(), "the Tetris-only level has no groceries at all");
+        assertEquals(0, state.getRowsCleared());
     }
 
     @Test

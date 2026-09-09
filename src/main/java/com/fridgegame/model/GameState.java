@@ -16,6 +16,8 @@ public class GameState {
     private final IntegerProperty streak = new SimpleIntegerProperty(0);
     private final IntegerProperty secondsLeft = new SimpleIntegerProperty(0);
     private final IntegerProperty level = new SimpleIntegerProperty(1);
+    private final IntegerProperty rowsCleared = new SimpleIntegerProperty(0);
+    private final IntegerProperty itemsLeft = new SimpleIntegerProperty(0);
 
     public IntegerProperty scoreProperty() {
         return score;
@@ -77,10 +79,38 @@ public class GameState {
         level.set(value);
     }
 
+    /** Rows of Tetris cleared during the current level — one grocery item earned per row. */
+    public IntegerProperty rowsClearedProperty() {
+        return rowsCleared;
+    }
+
+    public int getRowsCleared() {
+        return rowsCleared.get();
+    }
+
+    public void setRowsCleared(int value) {
+        rowsCleared.set(value);
+    }
+
+    /** Items still to be sorted correctly before this level is complete. */
+    public IntegerProperty itemsLeftProperty() {
+        return itemsLeft;
+    }
+
+    public int getItemsLeft() {
+        return itemsLeft.get();
+    }
+
+    public void setItemsLeft(int value) {
+        itemsLeft.set(value);
+    }
+
     /** Loads a new level's time limit and level number; score/lives/streak carry over. */
     public void startLevel(Level newLevel) {
         setLevel(newLevel.number());
         setSecondsLeft(newLevel.timeLimitSeconds());
+        setRowsCleared(0);
+        setItemsLeft(newLevel.items().size());
     }
 
     /** Resets score, lives and streak for a brand-new game (level is set separately via startLevel). */

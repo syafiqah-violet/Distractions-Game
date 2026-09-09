@@ -1,12 +1,18 @@
 package com.fridgegame.controller;
 
+import com.fridgegame.director.LevelStats;
 import com.fridgegame.model.GameState;
 import com.fridgegame.model.GroceryItem;
 import com.fridgegame.model.Level;
+import com.fridgegame.model.LevelMode;
 import com.fridgegame.model.StorageZone;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 
-/** Correct/wrong drop rules, scoring, level completion and the countdown tick (Phase 4 + 5). */
+/** Correct/wrong drop rules, scoring, level completion and the countdown tick. */
 public class GameController {
 
     private static final int CORRECT_BASE_POINTS = 10;
@@ -14,19 +20,59 @@ public class GameController {
     private static final int STREAK_DIVISOR = 5;
     private static final int TIME_BONUS_PER_SECOND = 2;
 
+    /**
+     * Points for clearing 1–4 rows at once, indexed by row count.
+     *
+     * <p>Steeply superlinear on purpose, in the spirit of the original Tetris table: on the
+     * Tetris-only level there are no groceries to earn, so stacking for a multi-row clear
+     * has to be worth the risk of doing it.
+     */
+    private static final int[] ROW_POINTS = {0, 20, 60, 150, 400};
+
     private final GameState state;
-    private int itemsRemaining;
+
+    /** The level's quota, waiting to be earned one cleared row at a time. */
+    private final Deque<GroceryItem> locked = new ArrayDeque<>();
+
+    private Level level;
+
+    // Measured performance for the current level; read by the director between levels.
+    private int correctDrops;
+    private int wrongDrops;
+    private int topOuts;
+
     private IntConsumer onLevelComplete = bonus -> { };
     private Runnable onGameOver = () -> { };
+    private Consumer<GroceryItem> onItemUnlocked = item -> { };
+    private BiConsumer<GroceryItem, StorageZone> onWrongDrop = (item, zone) -> { };
+    private IntConsumer onStreak = streak -> { };
+    private Runnable onActivity = () -> { };
 
     public GameController(GameState state) {
         this.state = state;
     }
 
-    /** Loads a new level's items/time limit and resets the counter-empties tracker. */
+    /**
+     * Loads a new level's quota and time limit.
+     *
+     * <p>On {@link LevelMode#SORT_ONLY} the whole quota is released immediately — that
+     * level has no Tetris board to earn it from, and the point is to practise sorting.
+     * Otherwise nothing is on the counter until rows are cleared.
+     *
+     * <p>Callers must have the counter view built before calling this, since the release
+     * fires {@code onItemUnlocked} synchronously.
+     */
     public void startLevel(Level level) {
+        this.level = level;
         state.startLevel(level);
-        itemsRemaining = level.items().size();
+        locked.clear();
+        locked.addAll(level.items());
+        correctDrops = 0;
+        wrongDrops = 0;
+        topOuts = 0;
+        if (level.mode() == LevelMode.SORT_ONLY) {
+            releaseAll();
+        }
     }
 
     public void setOnLevelComplete(IntConsumer listener) {
@@ -37,23 +83,97 @@ public class GameController {
         this.onGameOver = listener;
     }
 
+    /** Fired once per grocery item released onto the counter. */
+    public void setOnItemUnlocked(Consumer<GroceryItem> listener) {
+        this.onItemUnlocked = listener;
+    }
+
+    /** Fired when an item goes into a zone that does not accept it. */
+    public void setOnWrongDrop(BiConsumer<GroceryItem, StorageZone> listener) {
+        this.onWrongDrop = listener;
+    }
+
+    /** Fired with the streak length each time it reaches a multiple of {@link #STREAK_DIVISOR}. */
+    public void setOnStreak(IntConsumer listener) {
+        this.onStreak = listener;
+    }
+
+    /**
+     * Fired on every drop, right or wrong.
+     *
+     * <p>Separate from the other listeners because most drops are not worth remarking on
+     * but all of them are evidence that the player is still playing.
+     */
+    public void setOnActivity(Runnable listener) {
+        this.onActivity = listener;
+    }
+
+    /** Everything the director needs to know about how the level just went. */
+    public LevelStats snapshot(int piecesLocked) {
+        return new LevelStats(
+                level == null ? LevelMode.COMBINED : level.mode(),
+                piecesLocked,
+                state.getRowsCleared(),
+                correctDrops,
+                wrongDrops,
+                topOuts,
+                Math.max(0, state.getSecondsLeft()),
+                level == null ? 0 : level.timeLimitSeconds());
+    }
+
+    /**
+     * Pays out {@code rows} cleared rows.
+     *
+     * <p>Rows always score — that is the whole economy on the Tetris-only level. On a level
+     * with a quota they additionally buy one grocery item each, in level order, until the
+     * quota is exhausted.
+     *
+     * @return how many items were actually released
+     */
+    public int awardClearedRows(int rows) {
+        if (rows <= 0) {
+            return 0;
+        }
+        state.setRowsCleared(state.getRowsCleared() + rows);
+        state.setScore(state.getScore() + ROW_POINTS[Math.min(rows, ROW_POINTS.length - 1)]);
+
+        int released = 0;
+        for (int i = 0; i < rows; i++) {
+            GroceryItem item = locked.poll();
+            if (item == null) {
+                break;
+            }
+            onItemUnlocked.accept(item);
+            released++;
+        }
+        return released;
+    }
+
     /** Applies scoring rules for dropping {@code item} into {@code zone}; returns whether it was correct. */
     public boolean handleDrop(GroceryItem item, StorageZone zone) {
         boolean correct = zone.accepts(item);
+        onActivity.run();
         if (correct) {
+            correctDrops++;
             int bonus = CORRECT_BASE_POINTS * (1 + state.getStreak() / STREAK_DIVISOR);
             state.setScore(state.getScore() + bonus);
             state.setStreak(state.getStreak() + 1);
-            itemsRemaining--;
-            if (itemsRemaining == 0) {
+            state.setItemsLeft(state.getItemsLeft() - 1);
+            if (state.getItemsLeft() == 0) {
                 int timeBonus = state.getSecondsLeft() * TIME_BONUS_PER_SECOND;
                 state.setScore(state.getScore() + timeBonus);
                 onLevelComplete.accept(timeBonus);
+                return true;
+            }
+            if (state.getStreak() % STREAK_DIVISOR == 0) {
+                onStreak.accept(state.getStreak());
             }
         } else {
+            wrongDrops++;
             state.setScore(state.getScore() - WRONG_PENALTY);
             state.setStreak(0);
             state.setLives(state.getLives() - 1);
+            onWrongDrop.accept(item, zone);
             if (state.getLives() <= 0) {
                 onGameOver.run();
             }
@@ -61,11 +181,52 @@ public class GameController {
         return correct;
     }
 
-    /** Advances the countdown by one second; triggers game over once it hits 0. */
+    /**
+     * Charges a life for letting the Tetris stack reach the top.
+     *
+     * <p>Deliberately the same penalty shape as a wrong drop — lose a life, lose the
+     * streak — so topping out is a setback rather than an instant loss. The caller
+     * clears the board afterwards if any lives remain.
+     */
+    public void penalizeTopOut() {
+        topOuts++;
+        state.setStreak(0);
+        state.setLives(state.getLives() - 1);
+        if (state.getLives() <= 0) {
+            onGameOver.run();
+        }
+    }
+
+    /**
+     * Advances the countdown by one second and decides what hitting zero means.
+     *
+     * <p>Mode-dependent, and that asymmetry is the point. On the sorting levels the clock
+     * is a deadline: unsorted items when it expires is a loss. On the Tetris-only level
+     * there is nothing to finish, so surviving the full minute <i>is</i> the objective —
+     * provided at least {@link Level#requiredRows()} rows went down, which is what stops
+     * a player from passing by parking pieces in a corner and waiting.
+     */
     public void tick() {
         state.setSecondsLeft(state.getSecondsLeft() - 1);
-        if (state.getSecondsLeft() <= 0) {
+        if (state.getSecondsLeft() > 0) {
+            return;
+        }
+        if (level != null && level.mode() == LevelMode.TETRIS_ONLY) {
+            if (state.getRowsCleared() >= level.requiredRows()) {
+                onLevelComplete.accept(0);
+            } else {
+                onGameOver.run();
+            }
+        } else {
             onGameOver.run();
+        }
+    }
+
+    /** Hands the entire remaining quota to the counter at once. */
+    private void releaseAll() {
+        GroceryItem item;
+        while ((item = locked.poll()) != null) {
+            onItemUnlocked.accept(item);
         }
     }
 }

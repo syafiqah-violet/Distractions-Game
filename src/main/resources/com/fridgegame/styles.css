@@ -15,13 +15,57 @@
     -fx-background-radius: 8px;
     -fx-border-color: #d5dce1;
     -fx-border-radius: 8px;
+}
+
+.hud-stat {
     -fx-font-size: 15px;
     -fx-font-weight: bold;
     -fx-text-fill: #33475b;
 }
 
+.hud-rows   { -fx-text-fill: #2980b9; }
+.hud-quota  { -fx-text-fill: #128a5e; }
+.hud-time   { -fx-text-fill: #c0392b; }
+.hud-muted  { -fx-text-fill: #8a97a0; -fx-font-weight: normal; }
+
+/* The Tetris column, present on the Tetris-only and combined levels. */
+.tetris-panel {
+    -fx-padding: 0;
+}
+
+.board-header {
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #5c6b73;
+}
+
+.board-hint {
+    -fx-font-size: 10px;
+    -fx-text-fill: #8a97a0;
+}
+
+/* The rival's caption, pinned bottom-right on the combined level. */
+.commentary {
+    -fx-padding: 10px 12px;
+    -fx-background-color: rgba(23, 32, 42, 0.92);
+    -fx-background-radius: 10px;
+    -fx-border-color: #3d4b5a;
+    -fx-border-width: 1px;
+    -fx-border-radius: 10px;
+}
+
+.commentary-name {
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #f0b429;
+}
+
+.commentary-line {
+    -fx-font-size: 12px;
+    -fx-text-fill: #e8eef3;
+}
+
 .fridge {
-    -fx-pref-width: 640px;
     -fx-padding: 12px;
     -fx-background-color: #c9d1d6;
     -fx-background-radius: 12px;
@@ -80,6 +124,14 @@
 
 .counter-body {
     -fx-padding: 4px;
+}
+
+/* Shown only while nothing has been earned yet (phase T3). */
+.counter-placeholder {
+    -fx-padding: 12px 6px;
+    -fx-font-size: 11px;
+    -fx-text-fill: #a4b0b8;
+    -fx-text-alignment: center;
 }
 
 .grocery-node {

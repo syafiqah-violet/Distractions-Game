@@ -1,0 +1,18 @@
+# Local LLM settings. The model plays the rival commentator on level 3 and the
+# between-levels difficulty director.
+#
+# Copy to llm.properties (gitignored) and edit, or set the equivalent environment
+# variables, which take precedence:
+#
+#   LLM_BASE_URL   LLM_MODEL   LLM_API_KEY
+#
+# The endpoint currently accepts unauthenticated requests, so llm.apiKey may be left
+# blank — the Authorization header is then omitted entirely.
+#
+# If the endpoint is unreachable every level still plays through unchanged: the rival
+# simply stays quiet and each level uses its authored difficulty. The console says so
+# once at startup.
+
+llm.baseUrl=
+llm.model=
+llm.apiKey=

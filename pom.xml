@@ -17,6 +17,7 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <javafx.version>21.0.12</javafx.version>
     <junit.version>5.14.4</junit.version>
+    <jackson.version>2.22.2</jackson.version>
     <main.class>com.fridgegame.Launcher</main.class>
   </properties>
 
@@ -25,6 +26,14 @@
       <groupId>org.openjfx</groupId>
       <artifactId>javafx-controls</artifactId>
       <version>${javafx.version}</version>
+    </dependency>
+
+    <!-- Builds and parses the OpenAI-compatible chat-completions payloads for the
+         local LLM opponent. The HTTP side needs no dependency: java.net.http suffices. -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>${jackson.version}</version>
     </dependency>
 
     <dependency>

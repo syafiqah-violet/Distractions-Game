@@ -8,6 +8,7 @@ import com.fridgegame.model.FoodCategory;
 import com.fridgegame.model.GameState;
 import com.fridgegame.model.GroceryItem;
 import com.fridgegame.model.Level;
+import com.fridgegame.model.LevelMode;
 import com.fridgegame.model.StorageZone;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -61,7 +62,7 @@ class GameControllerTest {
     void levelCompleteFiresWithTimeBonusWhenLastItemIsSortedCorrectly() {
         GameState state = new GameState();
         GameController controller = new GameController(state);
-        controller.startLevel(new Level(1, List.of(LETTUCE), 20));
+        controller.startLevel(new Level(1, LevelMode.COMBINED, List.of(LETTUCE), 20));
         int[] bonus = {-1};
         controller.setOnLevelComplete(b -> bonus[0] = b);
 
