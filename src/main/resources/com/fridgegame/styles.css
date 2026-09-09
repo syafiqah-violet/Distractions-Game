@@ -44,14 +44,26 @@
     -fx-text-fill: #8a97a0;
 }
 
-/* Which brain is driving the second board (phase T4/T5). */
-.agent-status {
-    -fx-font-size: 10px;
-    -fx-text-alignment: center;
+/* The rival's caption, pinned bottom-right on the combined level. */
+.commentary {
+    -fx-padding: 10px 12px;
+    -fx-background-color: rgba(23, 32, 42, 0.92);
+    -fx-background-radius: 10px;
+    -fx-border-color: #3d4b5a;
+    -fx-border-width: 1px;
+    -fx-border-radius: 10px;
 }
 
-.agent-status-online  { -fx-text-fill: #128a5e; }
-.agent-status-offline { -fx-text-fill: #a4b0b8; }
+.commentary-name {
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #f0b429;
+}
+
+.commentary-line {
+    -fx-font-size: 12px;
+    -fx-text-fill: #e8eef3;
+}
 
 .fridge {
     -fx-padding: 12px;

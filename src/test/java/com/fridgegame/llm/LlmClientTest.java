@@ -25,7 +25,7 @@ class LlmClientTest {
 
     private static JsonNode bodyOf(LlmClient client) throws Exception {
         return MAPPER.readTree(client.body(
-                "sys", "user", LlmTetrisAgent.MOVE_SCHEMA, "tetris_move", 40));
+                "sys", "user", LlmCommentator.LINE_SCHEMA, "commentary_line", 48));
     }
 
     @Test
@@ -45,13 +45,13 @@ class LlmClientTest {
     }
 
     @Test
-    void requestsGuidedDecodingAgainstTheMoveSchema() throws Exception {
+    void requestsGuidedDecodingAgainstTheSuppliedSchema() throws Exception {
         JsonNode format = bodyOf(client()).path("response_format");
 
         assertEquals("json_schema", format.path("type").asText());
-        assertEquals("tetris_move", format.path("json_schema").path("name").asText());
+        assertEquals("commentary_line", format.path("json_schema").path("name").asText());
         assertTrue(format.path("json_schema").path("strict").asBoolean());
-        assertEquals(LlmTetrisAgent.MOVE_SCHEMA, format.path("json_schema").path("schema"));
+        assertEquals(LlmCommentator.LINE_SCHEMA, format.path("json_schema").path("schema"));
     }
 
     @Test
@@ -59,7 +59,7 @@ class LlmClientTest {
         JsonNode body = bodyOf(client());
 
         assertEquals("test-model", body.path("model").asText());
-        assertEquals(40, body.path("max_tokens").asInt());
+        assertEquals(48, body.path("max_tokens").asInt());
     }
 
     @Test
@@ -74,7 +74,7 @@ class LlmClientTest {
     }
 
     @Test
-    void usesALowTemperatureSoPlacementsAreStable() throws Exception {
+    void usesALowTemperatureSoRepliesAreStable() throws Exception {
         assertTrue(bodyOf(client()).path("temperature").asDouble() <= 0.3);
     }
 
@@ -83,7 +83,7 @@ class LlmClientTest {
         String nasty = "line1\n\"quoted\" \\ backslash\ttab";
 
         JsonNode body = MAPPER.readTree(client().body(
-                nasty, nasty, LlmTetrisAgent.MOVE_SCHEMA, "tetris_move", 40));
+                nasty, nasty, LlmCommentator.LINE_SCHEMA, "commentary_line", 48));
 
         assertEquals(nasty, body.path("messages").path(0).path("content").asText(),
                 "round-tripping a prompt with quotes and newlines must be lossless");
