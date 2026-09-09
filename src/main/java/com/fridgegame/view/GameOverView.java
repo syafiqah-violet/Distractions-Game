@@ -13,11 +13,9 @@ import javafx.util.Duration;
 public class GameOverView extends StackPane {
 
     public GameOverView(GameState state, boolean won, boolean isNewHighScore, int highScore, Runnable onRestart) {
-        Label emoji = new Label(won ? "🎉" : "🥶");
-        emoji.getStyleClass().add("game-over-emoji");
 
         Label title = new Label(won ? "You cleared every level!" : "Game Over");
-        title.getStyleClass().add("game-over-title");
+        title.getStyleClass().add("overlay-title");
         if (won) {
             title.getStyleClass().add("game-over-title-win");
         }
@@ -39,13 +37,14 @@ public class GameOverView extends StackPane {
         restartButton.getStyleClass().addAll("primary-button", "large-action-button");
         restartButton.setOnAction(e -> onRestart.run());
 
-        VBox card = new VBox(16, emoji, title, scoreBlock);
-        card.getStyleClass().add("game-over-card");
+        VBox card = new VBox(16, title, scoreBlock);
+        card.getStyleClass().add("overlay-card");
         card.setAlignment(Pos.CENTER);
+        card.setMaxSize(USE_PREF_SIZE, USE_PREF_SIZE);
 
         if (!won) {
             Label levelReached = new Label("You made it to Level " + state.getLevel());
-            levelReached.getStyleClass().add("game-over-subtitle");
+            levelReached.getStyleClass().add("overlay-subtitle");
             card.getChildren().add(1, levelReached);
         }
 
@@ -59,9 +58,9 @@ public class GameOverView extends StackPane {
         }
         card.getChildren().add(restartButton);
 
-        getStyleClass().add("game-over-backdrop");
+        getStyleClass().add("overlay-backdrop");
         if (won) {
-            getStyleClass().add("game-over-backdrop-win");
+            getStyleClass().add("overlay-backdrop-win");
         }
         getChildren().add(card);
 

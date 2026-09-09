@@ -11,17 +11,15 @@ import javafx.scene.layout.VBox;
 public class LevelCompleteView extends StackPane {
 
     public LevelCompleteView(GameState state, LevelMode mode, int timeBonus, Runnable onNext) {
-        Label emoji = new Label("🎊");
-        emoji.getStyleClass().add("level-complete-emoji");
 
         Label title = new Label("Level " + state.getLevel() + " Complete!");
-        title.getStyleClass().add("level-complete-title");
+        title.getStyleClass().addAll("overlay-title", "level-complete-title");
 
         Label bonusBadge = new Label("⏱ Time Bonus +" + timeBonus);
         bonusBadge.getStyleClass().add("time-bonus-badge");
 
         Label summary = new Label(summarise(state, mode));
-        summary.getStyleClass().add("game-over-subtitle");
+        summary.getStyleClass().add("overlay-subtitle");
 
         Label scoreCaption = new Label("SCORE");
         scoreCaption.getStyleClass().add("stat-label");
@@ -37,11 +35,12 @@ public class LevelCompleteView extends StackPane {
         nextButton.getStyleClass().addAll("primary-button", "large-action-button");
         nextButton.setOnAction(e -> onNext.run());
 
-        VBox card = new VBox(16, emoji, title, summary, bonusBadge, scoreBlock, nextButton);
-        card.getStyleClass().add("level-complete-card");
+        VBox card = new VBox(16, title, summary, bonusBadge, scoreBlock, nextButton);
+        card.getStyleClass().add("overlay-card");
         card.setAlignment(Pos.CENTER);
+        card.setMaxSize(USE_PREF_SIZE, USE_PREF_SIZE);
 
-        getStyleClass().add("level-complete-backdrop");
+        getStyleClass().add("overlay-backdrop");
         getChildren().add(card);
 
         ViewTransitions.fadeScaleIn(card);
