@@ -43,6 +43,16 @@ public final class DragHandler {
      */
     public static void makeDraggable(GroceryNode node, TetrisController tetris) {
         node.setOnDragDetected(e -> {
+            // A node that has just been sorted is removed from the counter in onDragDone,
+            // but it keeps this handler and JavaFX can still fire drag-detected at it.
+            // startDragAndDrop then throws IllegalStateException on the FX thread and the
+            // gesture is lost. Reachable by hand on the sorting level, where four items
+            // sit on the counter at once and a fast player drags from the same spot twice
+            // in a row as the tiles reflow under the cursor.
+            if (node.getScene() == null || node.getParent() == null) {
+                e.consume();
+                return;
+            }
             Dragboard db = node.startDragAndDrop(TransferMode.MOVE);
             ClipboardContent content = new ClipboardContent();
             content.putString(node.getItem().id());
@@ -56,8 +66,11 @@ public final class DragHandler {
         node.setOnDragDone(e -> {
             node.setOpacity(1.0);
             tetris.setDraggingGrocery(false);
-            if (e.getTransferMode() == TransferMode.MOVE) {
-                ((Pane) node.getParent()).getChildren().remove(node);
+            // Parent-checked for the same reason as above: this must not throw on the FX
+            // thread if the node has already left the counter.
+            if (e.getTransferMode() == TransferMode.MOVE
+                    && node.getParent() instanceof Pane parent) {
+                parent.getChildren().remove(node);
             }
             e.consume();
         });
