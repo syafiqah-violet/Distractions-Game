@@ -28,8 +28,8 @@
 .hud-time   { -fx-text-fill: #c0392b; }
 .hud-muted  { -fx-text-fill: #8a97a0; -fx-font-weight: normal; }
 
-/* Tetris half of the split screen (phase T2). */
-.versus {
+/* The Tetris column, present on the Tetris-only and combined levels. */
+.tetris-panel {
     -fx-padding: 0;
 }
 

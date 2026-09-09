@@ -199,63 +199,6 @@ class TetrisBoardTest {
         assertEquals(0, board.currentRotation());
     }
 
-    // --------------------------------------------------------------- garbage
-
-    @Test
-    void garbageArrivesAtTheBottomWithExactlyOneHole() {
-        TetrisBoard board = new TetrisBoard(3);
-
-        board.pushGarbage(1);
-
-        int holes = 0;
-        for (int c = 0; c < TetrisBoard.WIDTH; c++) {
-            if (board.cellAt(TetrisBoard.HEIGHT - 1, c) == Cell.EMPTY) {
-                holes++;
-            } else {
-                assertEquals(Cell.GARBAGE, board.cellAt(TetrisBoard.HEIGHT - 1, c));
-            }
-        }
-        assertEquals(1, holes);
-    }
-
-    @Test
-    void garbagePushesTheExistingStackUpwards() {
-        TetrisBoard board = new TetrisBoard(3);
-        board.setStack("X.........");
-
-        board.pushGarbage(2);
-
-        assertEquals(Cell.GARBAGE, board.cellAt(TetrisBoard.HEIGHT - 3, 0),
-                "the original square rose two rows");
-        assertEquals(Cell.EMPTY, board.cellAt(TetrisBoard.HEIGHT - 3, 1));
-    }
-
-    @Test
-    void garbageThatWouldOverflowTheTopTopsTheBoardOut() {
-        TetrisBoard board = new TetrisBoard(3);
-        String[] rows = new String[TetrisBoard.HEIGHT];
-        java.util.Arrays.fill(rows, "X.........");
-        board.setStack(rows);
-
-        board.pushGarbage(1);
-
-        assertTrue(board.isToppedOut());
-    }
-
-    @Test
-    void garbageIsIgnoredOnceTheBoardIsDead() {
-        TetrisBoard board = new TetrisBoard(3);
-        String[] rows = new String[TetrisBoard.HEIGHT];
-        java.util.Arrays.fill(rows, "X.........");
-        board.setStack(rows);
-        board.pushGarbage(1);
-        int before = filledCells(board);
-
-        board.pushGarbage(3);
-
-        assertEquals(before, filledCells(board));
-    }
-
     // --------------------------------------------------------------- top out
 
     @Test
@@ -301,7 +244,7 @@ class TetrisBoardTest {
         assertEquals(before, filledCells(board));
     }
 
-    // --------------------------------------------------------- agent queries
+    // --------------------------------------------------------- stack queries
 
     @Test
     void restingRowRejectsPlacementsThatHangOffTheBoard() {

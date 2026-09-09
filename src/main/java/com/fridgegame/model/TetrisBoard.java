@@ -191,43 +191,7 @@ public final class TetrisBoard {
         java.util.Arrays.fill(grid[0], Cell.EMPTY);
     }
 
-    // -------------------------------------------------------------- garbage
-
-    /**
-     * Pushes {@code rows} near-full rows in at the bottom, shifting the stack up.
-     *
-     * <p>Each garbage row has exactly one hole, so it can be cleared but only with a
-     * deliberate placement. If the shift would push locked squares off the top of the
-     * board, the board tops out.
-     */
-    public void pushGarbage(int rows) {
-        if (rows <= 0 || toppedOut) {
-            return;
-        }
-        for (int i = 0; i < rows; i++) {
-            for (int c = 0; c < WIDTH; c++) {
-                if (grid[0][c] != Cell.EMPTY) {
-                    toppedOut = true;
-                }
-            }
-            for (int r = 0; r < HEIGHT - 1; r++) {
-                System.arraycopy(grid[r + 1], 0, grid[r], 0, WIDTH);
-            }
-            int hole = random.nextInt(WIDTH);
-            for (int c = 0; c < WIDTH; c++) {
-                grid[HEIGHT - 1][c] = c == hole ? Cell.EMPTY : Cell.GARBAGE;
-            }
-        }
-        // The falling piece may now be inside the raised stack; lift it clear.
-        while (row > 0 && !fits(current, rotation, row, col)) {
-            row--;
-        }
-        if (!fits(current, rotation, row, col)) {
-            toppedOut = true;
-        }
-    }
-
-    // ------------------------------------------------------- agent queries
+    // --------------------------------------------------------- stack queries
 
     /**
      * The row the piece would come to rest on if dropped at {@code rotation}/{@code column},
@@ -286,8 +250,8 @@ public final class TetrisBoard {
      * cleared. Filled squares come back as {@link Cell#GARBAGE} since the original piece
      * colours are not recoverable from the text.
      *
-     * <p>Public because reaching a specific position by playing moves is impractical:
-     * tests and agent evaluation both need to state the board directly.
+     * <p>Public because reaching a specific position by playing moves is impractical —
+     * tests need to state the board directly.
      */
     public void setStack(String... bottomUpRows) {
         for (Cell[] rowCells : grid) {

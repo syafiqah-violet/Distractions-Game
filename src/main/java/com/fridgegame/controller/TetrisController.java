@@ -26,9 +26,11 @@ public class TetrisController {
     private IntConsumer onRowsCleared = rows -> { };
     private Runnable onTopOut = () -> { };
     private Runnable onChanged = () -> { };
+    private Runnable onPieceLocked = () -> { };
 
     private boolean active;
     private boolean draggingGrocery;
+    private int piecesLocked;
 
     public TetrisController(long seed) {
         this.board = new TetrisBoard(seed);
@@ -54,6 +56,22 @@ public class TetrisController {
         this.onChanged = listener;
     }
 
+    /**
+     * Fired once per piece that comes to rest, after any resulting line clears.
+     *
+     * <p>The one moment where the stack's shape is worth measuring: the player has just
+     * committed to a placement, so this is when a newly buried hole can be attributed to
+     * a decision rather than to gravity mid-fall.
+     */
+    public void setOnPieceLocked(Runnable listener) {
+        this.onPieceLocked = listener;
+    }
+
+    /** Pieces locked during the current level — the denominator for a clear rate. */
+    public int getPiecesLocked() {
+        return piecesLocked;
+    }
+
     // ------------------------------------------------------------ level flow
 
     /** Wipes the board and restarts gravity at {@code gravityMillis} per row. */
@@ -64,6 +82,7 @@ public class TetrisController {
                 new KeyFrame(Duration.millis(gravityMillis), e -> step()));
         active = true;
         draggingGrocery = false;
+        piecesLocked = 0;
         gravity.play();
         onChanged.run();
     }
@@ -94,24 +113,6 @@ public class TetrisController {
         } else {
             gravity.play();
         }
-    }
-
-    /**
-     * Takes {@code rows} garbage rows from the opponent.
-     *
-     * <p>Garbage can bury the player outright, so this goes through the same top-out
-     * path as gravity does rather than silently leaving a dead board on screen.
-     */
-    public void receiveGarbage(int rows) {
-        if (!active || rows <= 0) {
-            return;
-        }
-        board.pushGarbage(rows);
-        if (board.isToppedOut()) {
-            gravity.pause();
-            onTopOut.run();
-        }
-        onChanged.run();
     }
 
     /** Recovers from a top-out: the caller has already charged a life. */
@@ -184,6 +185,12 @@ public class TetrisController {
         if (result.toppedOut()) {
             gravity.pause();
             onTopOut.run();
+            return;
+        }
+        // After the clear callbacks, so a listener measuring the stack sees the settled board.
+        if (result.locked()) {
+            piecesLocked++;
+            onPieceLocked.run();
         }
     }
 }

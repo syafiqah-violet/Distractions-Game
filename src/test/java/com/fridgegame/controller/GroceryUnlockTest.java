@@ -7,6 +7,7 @@ import com.fridgegame.model.FoodCategory;
 import com.fridgegame.model.GameState;
 import com.fridgegame.model.GroceryItem;
 import com.fridgegame.model.Level;
+import com.fridgegame.model.LevelMode;
 import com.fridgegame.model.StorageZone;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,7 +29,7 @@ class GroceryUnlockTest {
 
     private void startLevel(GroceryItem... items) {
         controller.setOnItemUnlocked(unlocked::add);
-        controller.startLevel(new Level(1, List.of(items), 60));
+        controller.startLevel(new Level(1, LevelMode.COMBINED, List.of(items), 60));
     }
 
     @Test
@@ -71,7 +72,7 @@ class GroceryUnlockTest {
     }
 
     @Test
-    void rowsBeyondTheQuotaPayPointsInsteadOfItems() {
+    void rowsBeyondTheQuotaStillScoreEvenThoughNoItemIsLeftToEarn() {
         startLevel(MILK);
         int scoreBefore = state.getScore();
 
@@ -79,8 +80,29 @@ class GroceryUnlockTest {
 
         assertEquals(1, released, "only one item was left to earn");
         assertEquals(1, unlocked.size());
-        assertEquals(scoreBefore + 10, state.getScore(), "two surplus rows at 5 points each");
+        assertEquals(scoreBefore + 150, state.getScore(), "a triple pays regardless of the quota");
         assertEquals(3, state.getRowsCleared(), "all three rows still count on the HUD");
+    }
+
+    @Test
+    void multiRowClearsScoreSteeplyMoreThanSingles() {
+        startLevel();
+
+        controller.awardClearedRows(1);
+        assertEquals(20, state.getScore());
+
+        controller.awardClearedRows(4);
+        assertEquals(20 + 400, state.getScore(), "a four-row clear is worth far more than four singles");
+    }
+
+    @Test
+    void awardingZeroRowsChangesNothing() {
+        startLevel(MILK);
+
+        assertEquals(0, controller.awardClearedRows(0));
+        assertEquals(0, state.getScore());
+        assertEquals(0, state.getRowsCleared());
+        assertTrue(unlocked.isEmpty());
     }
 
     @Test
@@ -89,7 +111,7 @@ class GroceryUnlockTest {
         controller.awardClearedRows(2);
         unlocked.clear();
 
-        controller.startLevel(new Level(2, List.of(CHICKEN), 60));
+        controller.startLevel(new Level(2, LevelMode.COMBINED, List.of(CHICKEN), 60));
         assertEquals(0, state.getRowsCleared(), "row count resets at level start");
 
         controller.awardClearedRows(1);

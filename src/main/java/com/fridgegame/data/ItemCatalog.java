@@ -3,9 +3,15 @@ package com.fridgegame.data;
 import com.fridgegame.model.FoodCategory;
 import com.fridgegame.model.GroceryItem;
 import com.fridgegame.model.Level;
+import com.fridgegame.model.LevelMode;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -36,19 +42,25 @@ public final class ItemCatalog {
             .collect(Collectors.toUnmodifiableMap(GroceryItem::id, Function.identity()));
 
     /**
-     * The three rounds. Every level is 60 seconds — the item quota is what you have to
-     * earn from Tetris in that time, and difficulty comes from gravity and the opponent
-     * rather than from a shorter clock.
+     * The three rounds, each teaching a different thing.
      *
-     * <p>These six numbers per level are the whole difficulty curve; retune here.
+     * <p>Level 1 is drag-and-drop with the shopping already done; level 2 is Tetris with
+     * nothing to sort; level 3 is both, with triple the clock because it is the only level
+     * where you have to do two things at once.
+     *
+     * <p>These are <b>templates</b>. The level director may retune gravity and the item
+     * quota of levels 2 and 3 from how the player actually performed — see
+     * {@link Level#withTuning}. Mode, clock and required rows are fixed here.
      */
     public static final List<Level> LEVELS = List.of(
-            //        n  items                                                     time  grav  ai    garbage
-            new Level(1, itemsById("milk", "lettuce", "chicken", "juice"),          60,   700,  2000, false),
-            new Level(2, itemsById("milk", "cheese", "lettuce", "chicken",
-                    "juice", "ice_cream"),                                          60,   550,  1600, true),
-            new Level(3, itemsById("milk", "cheese", "lettuce", "carrot", "tomato",
-                    "chicken", "juice", "ice_cream"),                               60,   420,  1300, true)
+            //        n  mode                     items                             time  grav  rows
+            new Level(1, LevelMode.SORT_ONLY,
+                    itemsById("milk", "lettuce", "chicken", "juice"),                60,     0, 0),
+            new Level(2, LevelMode.TETRIS_ONLY,
+                    List.of(),                                                       60,   550, 1),
+            new Level(3, LevelMode.COMBINED,
+                    itemsById("milk", "cheese", "lettuce", "carrot",
+                            "tomato", "chicken"),                                   180,   480, 0)
     );
 
     private ItemCatalog() {
@@ -60,6 +72,48 @@ public final class ItemCatalog {
             throw new IllegalArgumentException("No grocery item with id: " + id);
         }
         return item;
+    }
+
+    /**
+     * Picks {@code count} groceries, favouring {@code emphasis} categories.
+     *
+     * <p>Always spans at least two categories: a quota drawn entirely from one category
+     * would make the fridge a single target instead of a sorting problem, and the director
+     * asking for "all dairy" should not be able to delete the mechanic.
+     *
+     * <p>Deterministic for a given {@code seed}, so a director decision can be replayed.
+     *
+     * @param emphasis categories to draw from first; empty or null means no preference
+     */
+    public static List<GroceryItem> pick(int count, List<FoodCategory> emphasis, long seed) {
+        int wanted = Math.max(1, Math.min(count, ALL_ITEMS.size()));
+        Random random = new Random(seed);
+
+        Set<FoodCategory> preferred = emphasis == null || emphasis.isEmpty()
+                ? Set.of()
+                : EnumSet.copyOf(emphasis);
+
+        List<GroceryItem> favoured = new ArrayList<>();
+        List<GroceryItem> rest = new ArrayList<>();
+        for (GroceryItem item : ALL_ITEMS) {
+            (preferred.contains(item.category()) ? favoured : rest).add(item);
+        }
+        Collections.shuffle(favoured, random);
+        Collections.shuffle(rest, random);
+
+        List<GroceryItem> pool = new ArrayList<>(favoured);
+        pool.addAll(rest);
+
+        List<GroceryItem> picked = new ArrayList<>(pool.subList(0, wanted));
+        // A one-category quota is not a sorting problem; swap the last slot for an outsider.
+        if (wanted > 1 && picked.stream().map(GroceryItem::category).distinct().count() == 1) {
+            FoodCategory only = picked.get(0).category();
+            pool.stream()
+                    .filter(item -> item.category() != only)
+                    .findFirst()
+                    .ifPresent(outsider -> picked.set(wanted - 1, outsider));
+        }
+        return List.copyOf(picked);
     }
 
     private static List<GroceryItem> itemsById(String... ids) {
