@@ -275,4 +275,103 @@ class CommentaryThrottleTest {
 
         assertEquals(1, chat.requests(), "last level's pending taunt must not open the next one");
     }
+
+    // ------------------------------------------------------------------ pause
+    //
+    // Every threshold in the controller is an elapsed-wall-clock test, so a pause looks
+    // exactly like time passing unless it is discounted.
+
+    @Test
+    void aPauseIsNotIdleTime() {
+        CommentaryController controller = controller();
+
+        controller.notePauseStarted();
+        now += CommentaryController.IDLE_NUDGE_MILLIS * 2;
+        controller.noteResumed();
+        controller.poll("ctx");
+
+        assertEquals(0, chat.requests(),
+                "the rival must not accuse a player of idling during a pause they asked for");
+    }
+
+    @Test
+    void theReadingGapSurvivesAPause() {
+        CommentaryController controller = controller();
+        controller.offer(event(CommentaryEvent.Kind.WRONG_DROP), "ctx");
+        chat.answerLast("first");
+
+        now += 1_000;
+        controller.notePauseStarted();
+        now += 60_000;
+        controller.noteResumed();
+
+        controller.offer(event(CommentaryEvent.Kind.TOP_OUT), "ctx");
+        assertEquals(1, chat.requests(), "4s of reading time was still owed when we paused");
+
+        now += CommentaryController.MIN_GAP_MILLIS - 1_000;
+        controller.poll("ctx");
+        assertEquals(2, chat.requests(), "and exactly 4s later it should be paid");
+    }
+
+    @Test
+    void aLineDeliveredDuringThePauseIsNotPushedIntoTheFuture() {
+        CommentaryController controller = controller();
+        controller.offer(event(CommentaryEvent.Kind.WRONG_DROP), "ctx");
+
+        controller.notePauseStarted();
+        now += 1_000;
+        chat.answerLast("landed mid-pause");
+        now += 30_000;
+        controller.noteResumed();
+
+        now += CommentaryController.MIN_GAP_MILLIS;
+        controller.offer(event(CommentaryEvent.Kind.TOP_OUT), "ctx");
+
+        assertEquals(2, chat.requests(),
+                "shifting a mid-pause delivery by the whole pause would date it to the future");
+    }
+
+    /**
+     * Starts the clock near its origin on purpose. {@code System.nanoTime()}'s origin is
+     * arbitrary, so a small reading is legal — and it is the case where shifting the
+     * "nothing shown yet" sentinel produces a timestamp close enough to now that the gap
+     * check starts applying to a caption that was never displayed.
+     */
+    @Test
+    void aPauseBeforeTheFirstLineDoesNotSilenceTheRival() {
+        now = 100;
+        CommentaryController controller = controller();
+
+        controller.notePauseStarted();
+        now += 30_000;
+        controller.noteResumed();
+        controller.offer(event(CommentaryEvent.Kind.WRONG_DROP), "ctx");
+
+        assertEquals(1, chat.requests(),
+                "zero is the sentinel for 'nothing shown yet' and must not be shifted");
+    }
+
+    @Test
+    void resumingWithoutAPauseChangesNothing() {
+        CommentaryController controller = controller();
+        controller.offer(event(CommentaryEvent.Kind.WRONG_DROP), "ctx");
+        chat.answerLast("first");
+
+        controller.noteResumed(); // never paused; the LLM probe can reach this
+
+        controller.offer(event(CommentaryEvent.Kind.TOP_OUT), "ctx");
+        assertEquals(1, chat.requests(), "the gap must still be closed");
+    }
+
+    @Test
+    void pauseMarkersAreIgnoredWhileDisabled() {
+        CommentaryController controller = controller();
+        controller.stop();
+
+        controller.notePauseStarted();
+        now += 60_000;
+        controller.noteResumed();
+
+        assertEquals(0, chat.requests());
+    }
 }

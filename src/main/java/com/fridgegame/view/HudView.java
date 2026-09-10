@@ -5,6 +5,7 @@ import com.fridgegame.model.GameState;
 import com.fridgegame.model.LevelMode;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -14,6 +15,7 @@ public class HudView extends HBox {
 
     private final Label rowsLabel;
     private final Label itemsLeftLabel;
+    private final Button pauseButton = new Button("⏸ Pause");
 
     public HudView(GameState state, HighScoreStore highScoreStore) {
         Label scoreLabel = stat();
@@ -44,13 +46,33 @@ public class HudView extends HBox {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
+        pauseButton.getStyleClass().add("hud-pause-button");
+        // Otherwise it keeps focus after a click and sits in the middle of the HUD wearing
+        // a focus ring, and Space would reach it instead of hard-dropping.
+        pauseButton.setFocusTraversable(false);
+
         getStyleClass().add("hud");
         setAlignment(Pos.CENTER_LEFT);
         setSpacing(18);
         setPadding(new Insets(10, 16, 10, 16));
         getChildren().addAll(
                 scoreLabel, livesLabel, levelLabel, rowsLabel, itemsLeftLabel,
-                spacer, highScoreLabel, timeLabel);
+                spacer, highScoreLabel, timeLabel, pauseButton);
+    }
+
+    public void setOnPauseToggle(Runnable listener) {
+        pauseButton.setOnAction(e -> listener.run());
+    }
+
+    /**
+     * Keeps the button's label honest about what it will do next.
+     *
+     * <p>The pause overlay covers the HUD, so in practice this button only ever pauses and
+     * the overlay carries Resume. The label still has to be right for the instant before
+     * the overlay paints, and for anyone who later makes the overlay smaller.
+     */
+    public void setPaused(boolean paused) {
+        pauseButton.setText(paused ? "▶ Resume" : "⏸ Pause");
     }
 
     /**

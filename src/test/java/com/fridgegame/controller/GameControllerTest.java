@@ -100,4 +100,49 @@ class GameControllerTest {
         assertEquals(0, state.getSecondsLeft());
         assertTrue(fired[0]);
     }
+
+    /**
+     * The pause overlay is supposed to swallow the mouse before a drop ever reaches here,
+     * but that block is a property of a stylesheet — one missing background colour and the
+     * node stops being a mouse target, with the whole fridge live and the clock frozen.
+     */
+    @Test
+    void aCorrectDropWhilePausedScoresNothing() {
+        GameState state = new GameState();
+        GameController controller = new GameController(state);
+        boolean[] activity = {false};
+        controller.setOnActivity(() -> activity[0] = true);
+        controller.setPaused(true);
+
+        boolean correct = controller.handleDrop(LETTUCE, StorageZone.CRISPER);
+
+        assertFalse(correct);
+        assertEquals(0, state.getScore());
+        assertEquals(0, state.getStreak());
+        assertFalse(activity[0], "a refused drop is not evidence the player is playing");
+    }
+
+    @Test
+    void aWrongDropWhilePausedCostsNoLife() {
+        GameState state = new GameState();
+        GameController controller = new GameController(state);
+        controller.setPaused(true);
+
+        controller.handleDrop(LETTUCE, StorageZone.TOP_SHELF);
+
+        assertEquals(GameState.STARTING_LIVES, state.getLives());
+        assertEquals(0, state.getScore());
+    }
+
+    @Test
+    void unpausingRestoresNormalScoring() {
+        GameState state = new GameState();
+        GameController controller = new GameController(state);
+        controller.setPaused(true);
+        controller.handleDrop(LETTUCE, StorageZone.CRISPER);
+        controller.setPaused(false);
+
+        assertTrue(controller.handleDrop(LETTUCE, StorageZone.CRISPER));
+        assertEquals(10, state.getScore());
+    }
 }

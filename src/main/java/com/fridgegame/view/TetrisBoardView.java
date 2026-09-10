@@ -22,10 +22,13 @@ import javafx.util.Duration;
  */
 public class TetrisBoardView extends Canvas {
 
-    private static final Color BACKDROP = Color.web("#1b2531");
-    private static final Color GRID_LINE = Color.web("#2c3e50");
-    private static final Color DEAD_WASH = Color.web("#e74c3c", 0.28);
-    private static final Color GHOST = Color.web("#ffffff", 0.16);
+    // Kept in step with the -pixel-* palette in styles.css by hand: a Canvas is painted,
+    // not styled, so these are the one set of colours the stylesheet cannot reach.
+    private static final Color BACKDROP = Color.web("#0b1a24");
+    private static final Color FRAME = Color.web("#5c2846");
+    private static final Color GRID_LINE = Color.web("#17303f");
+    private static final Color DEAD_WASH = Color.web("#ff6b6b", 0.28);
+    private static final Color GHOST = Color.web("#4ec8e8", 0.20);
 
     private final double cellSize;
 
@@ -107,6 +110,12 @@ public class TetrisBoardView extends Canvas {
             g.setFill(DEAD_WASH);
             g.fillRect(0, 0, getWidth(), getHeight());
         }
+
+        // Last, so nothing paints over it: the same plum frame the CSS panels wear, drawn
+        // here because a Canvas gets no border from the stylesheet.
+        g.setStroke(FRAME);
+        g.setLineWidth(3);
+        g.strokeRect(1.5, 1.5, getWidth() - 3, getHeight() - 3);
     }
 
     /** Outlines where the piece would land, so a hard drop is never a guess. */

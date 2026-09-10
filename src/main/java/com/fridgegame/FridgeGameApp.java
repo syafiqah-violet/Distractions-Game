@@ -19,12 +19,15 @@ import com.fridgegame.model.BoardMetrics;
 import com.fridgegame.model.GameState;
 import com.fridgegame.model.Level;
 import com.fridgegame.model.LevelMode;
+import com.fridgegame.view.AboutView;
 import com.fridgegame.view.CommentaryView;
 import com.fridgegame.view.CounterView;
 import com.fridgegame.view.FridgeView;
 import com.fridgegame.view.GameOverView;
 import com.fridgegame.view.HudView;
 import com.fridgegame.view.LevelCompleteView;
+import com.fridgegame.view.PauseOverlay;
+import com.fridgegame.view.StartView;
 import com.fridgegame.view.TetrisPanel;
 import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
@@ -35,6 +38,8 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -85,6 +90,8 @@ public class FridgeGameApp extends Application {
     private TetrisPanel tetrisPanel;
     private CounterView counterView;
     private CommentaryView commentaryView;
+    private PauseOverlay pauseOverlay;
+    private StartView startView;
 
     private CommentaryController commentary;
     private LevelDirector director = new FixedLevelDirector();
@@ -93,6 +100,10 @@ public class FridgeGameApp extends Application {
     private Level currentLevel;
     private int levelIndex;
     private boolean levelRunning;
+    private boolean paused;
+
+    /** Suppresses key auto-repeat, which would otherwise strobe the pause toggle. */
+    private boolean pauseKeyHeld;
 
     /** Holes in the stack as of the last piece lock, so a new one can be attributed. */
     private int lastHoles;
@@ -104,7 +115,7 @@ public class FridgeGameApp extends Application {
         controller.setOnLevelComplete(this::onLevelComplete);
         controller.setOnGameOver(() -> endGame(false));
         controller.setOnItemUnlocked(item ->
-                DragHandler.makeDraggable(counterView.addItem(item), tetris));
+                DragHandler.makeDraggable(counterView.addItem(item), tetris, controller));
         controller.setOnWrongDrop((item, zone) -> comment(CommentaryEvent.Kind.WRONG_DROP,
                 "they put " + item.name() + " in the " + zone.label() + " - wrong zone"));
         controller.setOnStreak(streak -> comment(CommentaryEvent.Kind.STREAK,
@@ -124,10 +135,13 @@ public class FridgeGameApp extends Application {
         tetris.setOnPieceLocked(this::onPieceLocked);
 
         hudView = new HudView(state, highScoreStore);
+        hudView.setOnPauseToggle(this::togglePause);
         commentaryView = new CommentaryView();
         // The card floats over the fridge, whose zones are live drop targets. Without this
         // it would silently swallow drops aimed at the bottom-right corner.
         commentaryView.setMouseTransparent(true);
+        pauseOverlay = new PauseOverlay(() -> setPaused(false), this::startGame);
+        startView = new StartView(this::startGame, this::showAbout);
 
         content = new HBox(14);
         gameRoot = new BorderPane();
@@ -136,7 +150,9 @@ public class FridgeGameApp extends Application {
         gameRoot.setTop(hudView);
         gameRoot.setCenter(content);
 
-        gameShell = new StackPane(gameRoot, commentaryView);
+        // The pause overlay is last on purpose: it is the top layer, and anything stacked
+        // above it — the rival's card in particular — would float over the pause screen.
+        gameShell = new StackPane(gameRoot, commentaryView, pauseOverlay);
         StackPane.setAlignment(commentaryView, Pos.BOTTOM_RIGHT);
         StackPane.setMargin(commentaryView, new Insets(0, 18, 18, 0));
 
@@ -146,19 +162,125 @@ public class FridgeGameApp extends Application {
         scene = new Scene(gameShell, WIDTH, HEIGHT);
         scene.getStylesheets().add(
                 FridgeGameApp.class.getResource("styles.css").toExternalForm());
+        installPauseKeys(scene);
         tetris.installKeys(scene);
 
-        stage.setTitle("Refrigerator Sorting Game");
+        stage.setTitle("Distractions game");
         stage.setMinWidth(1100);
         stage.setMinHeight(720);
         stage.setScene(scene);
         stage.show();
 
+        // Probing while the player reads the start screen makes the latency free.
         connectLlm();
 
+        showScreen(startView);
+    }
+
+    /**
+     * Binds Esc and P to the pause toggle.
+     *
+     * <p>Deliberately its own Scene filter rather than a case inside
+     * {@link TetrisController#installKeys}: that filter returns early unless a Tetris board
+     * is active, so a pause key living there would be dead on the sorting level — the one
+     * level with no board, and the first one every player meets.
+     *
+     * <p>Registered before the Tetris filter so the toggle is seen regardless of what the
+     * game keys later consume.
+     */
+    private void installPauseKeys(Scene scene) {
+        scene.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
+            if (event.getCode() != KeyCode.ESCAPE && event.getCode() != KeyCode.P) {
+                return;
+            }
+            event.consume();
+            // Held keys auto-repeat, and a repeating toggle strobes the game rather than
+            // pausing it. JavaFX exposes no isRepeat(), so track the key down ourselves.
+            if (pauseKeyHeld || !levelRunning) {
+                return;
+            }
+            pauseKeyHeld = true;
+            togglePause();
+        });
+        scene.addEventFilter(KeyEvent.KEY_RELEASED, event -> {
+            if (event.getCode() == KeyCode.ESCAPE || event.getCode() == KeyCode.P) {
+                pauseKeyHeld = false;
+            }
+        });
+    }
+
+    /** Begins a fresh run from level 1. Nothing is running until this is called. */
+    private void startGame() {
+        // A new game can be asked for mid-pause, where the timer is parked part-way
+        // through a second; play() alone would resume there and dock the first tick.
+        timer.stop();
+        state.reset();
         levelIndex = 0;
+        nextLevelFuture = null;
         loadLevel(ItemCatalog.LEVELS.get(0));
+        showScreen(gameShell);
         timer.play();
+    }
+
+    private void showAbout() {
+        showScreen(new AboutView(this::startGame));
+    }
+
+    private void togglePause() {
+        setPaused(!paused);
+    }
+
+    /**
+     * Freezes or resumes everything the player is being timed against.
+     *
+     * <p>{@code timer.pause()}, never {@code timer.stop()}: stop rewinds the playhead, so
+     * pausing nine tenths of the way through a second and resuming would hand back a whole
+     * one — repeatable for as long as the player cares to tap the key, and invisible on a
+     * HUD that only renders whole seconds.
+     */
+    private void setPaused(boolean value) {
+        if (paused == value || !levelRunning) {
+            return;
+        }
+        paused = value;
+        tetris.setPaused(value);
+        controller.setPaused(value);
+        if (value) {
+            timer.pause();
+            if (commentary != null) {
+                commentary.notePauseStarted();
+            }
+        } else {
+            if (commentary != null) {
+                commentary.noteResumed();
+            }
+            timer.play();
+        }
+        hudView.setPaused(value);
+        pauseOverlay.setVisible(value);
+        pauseOverlay.setManaged(value);
+    }
+
+    /**
+     * Clears a pause on the way out of a level, whatever the reason for leaving.
+     *
+     * <p>Separate from {@link #setPaused} because that one refuses to act once
+     * {@code levelRunning} is false, which is exactly the moment teardown needs it to. The
+     * case this exists for: pause, then lose the last life. {@code showScreen} swaps the
+     * root and takes the still-visible overlay off screen with it, so nothing looks wrong —
+     * until Play Again brings {@code gameShell} back with the overlay still there, over a
+     * running level, with every drop refused and no way to clear it.
+     *
+     * <p>Leaves {@code timer} alone; callers stop it themselves.
+     */
+    private void forceUnpause() {
+        paused = false;
+        pauseKeyHeld = false;
+        tetris.setPaused(false);
+        controller.setPaused(false);
+        hudView.setPaused(false);
+        pauseOverlay.setVisible(false);
+        pauseOverlay.setManaged(false);
     }
 
     /**
@@ -183,13 +305,21 @@ public class FridgeGameApp extends Application {
                     commentary = new CommentaryController(
                             LlmCommentator.using(new LlmClient(config, COMMENTARY_TIMEOUT)),
                             commentaryView::show,
-                            System::currentTimeMillis,
+                            // Monotonic rather than wall-clock: every threshold in that
+                            // class is an elapsed-time test, and none of them should move
+                            // because an NTP correction landed mid-level.
+                            () -> System.nanoTime() / 1_000_000L,
                             Platform::runLater);
                     director = LlmLevelDirector.using(
                             new LlmClient(config, DIRECTOR_TIMEOUT), System.nanoTime());
                     // The probe may land after a level is already up.
                     if (levelRunning && currentLevel.mode() == LevelMode.COMBINED) {
                         startCommentary();
+                        // ...and it may land while that level is paused, in which case this
+                        // brand-new controller has not seen the pause begin.
+                        if (paused) {
+                            commentary.notePauseStarted();
+                        }
                     }
                 }));
     }
@@ -201,6 +331,9 @@ public class FridgeGameApp extends Application {
      * gravity, a Tetris level builds no counter or fridge at all.
      */
     private void loadLevel(Level level) {
+        // The one invariant that makes every other unpause belt-and-braces: a level never
+        // starts paused, however the previous one ended.
+        forceUnpause();
         currentLevel = level;
         LevelMode mode = level.mode();
         hudView.applyMode(mode);
@@ -323,6 +456,7 @@ public class FridgeGameApp extends Application {
      * {@link #proceedToNextLevel} just uses the authored level instead of waiting.
      */
     private void onLevelComplete(int timeBonus) {
+        forceUnpause();
         levelRunning = false;
         timer.stop();
         tetris.stop();
@@ -366,6 +500,7 @@ public class FridgeGameApp extends Application {
     }
 
     private void endGame(boolean won) {
+        forceUnpause();
         levelRunning = false;
         timer.stop();
         tetris.stop();
@@ -377,13 +512,10 @@ public class FridgeGameApp extends Application {
         showScreen(new GameOverView(state, won, isNewHighScore, highScoreStore.get(), this::restart));
     }
 
+    /** Game Over returns to the front door rather than straight into another run. */
     private void restart() {
         state.reset();
-        levelIndex = 0;
-        nextLevelFuture = null;
-        loadLevel(ItemCatalog.LEVELS.get(0));
-        showScreen(gameShell);
-        timer.play();
+        showScreen(startView);
     }
 
     /** Offers an event to the rival; a no-op when there is no rival or no level running. */
