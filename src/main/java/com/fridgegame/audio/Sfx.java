@@ -26,6 +26,13 @@ public final class Sfx {
     private static final Clip CLICK = new Clip("29394__junggle__btn214.wav", 0.7);
     private static final Clip STORE = new Clip("29444__junggle__btn264.wav", 0.7);
 
+    // The two outcome sounds. Both are 24-bit/48kHz rather than the 16-bit/44.1kHz of the
+    // three above, and the applause is a Broadcast Wave carrying JUNK and bext chunks
+    // ahead of its fmt. AudioClip decodes both correctly — measured playback lengths match
+    // the headers — so they need no conversion despite not matching the others.
+    private static final Clip FAIL = new Clip("362375__gameFailed.wav", 0.7);
+    private static final Clip APPLAUSE = new Clip("735578__clapping.wav", 0.6);
+
     private static boolean muted;
 
     private Sfx() {
@@ -44,6 +51,28 @@ public final class Sfx {
     /** A grocery landed in the zone it belongs to. */
     public static void store() {
         STORE.play();
+    }
+
+    /** The run ended badly — out of lives, or out of clock with the objective unmet. */
+    public static void fail() {
+        FAIL.play();
+    }
+
+    /** A level was cleared, or the whole game was. */
+    public static void applause() {
+        APPLAUSE.play();
+    }
+
+    /**
+     * Cuts the applause off mid-cheer.
+     *
+     * <p>The only clip that needs this. The other four are short enough to always run to
+     * completion, but the applause is ten seconds long and the card that starts it can be
+     * dismissed after one — without this, the next level would begin under someone else's
+     * ovation.
+     */
+    public static void stopApplause() {
+        APPLAUSE.stop();
     }
 
     /**
@@ -92,6 +121,19 @@ public final class Sfx {
             }
             if (clip != null) {
                 clip.play();
+            }
+        }
+
+        /**
+         * Silences every instance of this clip that is currently sounding.
+         *
+         * <p>No lazy load here on purpose: a clip that has never been played has nothing
+         * to stop, and loading one just to stop it would pull the media stack in on a
+         * path that wants silence anyway.
+         */
+        void stop() {
+            if (clip != null) {
+                clip.stop();
             }
         }
 

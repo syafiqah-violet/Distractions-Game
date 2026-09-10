@@ -483,11 +483,19 @@ public class FridgeGameApp extends Application {
         } else {
             nextLevelFuture = null;
         }
+        Sfx.applause();
         showScreen(new LevelCompleteView(
                 state, currentLevel.mode(), timeBonus, this::proceedToNextLevel));
     }
 
     private void proceedToNextLevel() {
+        // Ten seconds of applause outlives the card that started it by a wide margin, and
+        // the player can dismiss that card after one. Stopping here rather than letting it
+        // ring out keeps the ovation on the screen it belongs to.
+        //
+        // Before the endGame branch, not after: the win plays its own applause, and
+        // stopping afterwards would cut the victory off at the knees.
+        Sfx.stopApplause();
         levelIndex++;
         if (levelIndex >= ItemCatalog.LEVELS.size()) {
             endGame(true);
@@ -520,11 +528,22 @@ public class FridgeGameApp extends Application {
         }
         commentaryView.clear();
         boolean isNewHighScore = highScoreStore.submit(state.getScore());
+        // GameOverView serves both outcomes — "Game Over" and "You cleared every level!" —
+        // so the branch is load-bearing rather than defensive: a failure sting under the
+        // victory title would read as a bug.
+        if (won) {
+            Sfx.applause();
+        } else {
+            Sfx.fail();
+        }
         showScreen(new GameOverView(state, won, isNewHighScore, highScoreStore.get(), this::restart));
     }
 
     /** Game Over returns to the front door rather than straight into another run. */
     private void restart() {
+        // The third and last way off a card that may still be clapping: a win, then Play
+        // Again. Nothing should still be cheering on the start screen.
+        Sfx.stopApplause();
         state.reset();
         showScreen(startView);
     }
