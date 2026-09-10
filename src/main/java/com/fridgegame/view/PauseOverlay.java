@@ -3,6 +3,7 @@ package com.fridgegame.view;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
@@ -25,7 +26,7 @@ import javafx.scene.layout.VBox;
  */
 public class PauseOverlay extends StackPane {
 
-    public PauseOverlay(Runnable onResume) {
+    public PauseOverlay(Runnable onResume, Runnable onNewGame) {
         Label title = new Label("PAUSED");
         title.getStyleClass().add("overlay-title");
 
@@ -38,7 +39,16 @@ public class PauseOverlay extends StackPane {
         // Otherwise Space — the hard-drop key — activates it the moment it takes focus.
         resumeButton.setFocusTraversable(false);
 
-        VBox card = new VBox(16, title, hint, resumeButton);
+        // Discards the run in progress, so it sits second: Resume is what a pause is for.
+        Button newGameButton = new Button("New Game");
+        newGameButton.getStyleClass().addAll("primary-button", "large-action-button");
+        newGameButton.setOnAction(e -> onNewGame.run());
+        newGameButton.setFocusTraversable(false);
+
+        HBox actions = new HBox(14, resumeButton, newGameButton);
+        actions.setAlignment(Pos.CENTER);
+
+        VBox card = new VBox(16, title, hint, actions);
         card.getStyleClass().add("overlay-card");
         card.setAlignment(Pos.CENTER);
         card.setMaxSize(USE_PREF_SIZE, USE_PREF_SIZE);

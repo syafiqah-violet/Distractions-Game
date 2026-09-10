@@ -3,15 +3,24 @@ package com.fridgegame.view;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
 /** The rules, reachable from the start screen and nowhere else. */
 public class AboutView extends StackPane {
 
-    public AboutView(Runnable onBack) {
+    public AboutView(Runnable onPlay) {
         Label title = new Label("ABOUT THIS GAME");
         title.getStyleClass().addAll("overlay-title", "about-title");
+
+        Button playButton = new Button("Play");
+        playButton.getStyleClass().addAll("primary-button", "large-action-button");
+        playButton.setOnAction(e -> onPlay.run());
+        // The card is a left-aligned VBox, so Play only reaches the right edge by sitting
+        // in a row that stretches the full width. A bare Button would stay on the left.
+        HBox playRow = new HBox(playButton);
+        playRow.setAlignment(Pos.CENTER_RIGHT);
 
         VBox card = new VBox(10,
                 title,
@@ -36,12 +45,8 @@ public class AboutView extends StackPane {
                 heading("The rival"),
                 body("With a local LLM configured, it heckles you on level 3 and retunes the "
                         + "difficulty between levels. Without one the game plays exactly the "
-                        + "same — you just get silence and the authored difficulty."));
-
-        Button backButton = new Button("Back");
-        backButton.getStyleClass().addAll("primary-button", "large-action-button");
-        backButton.setOnAction(e -> onBack.run());
-        card.getChildren().add(backButton);
+                        + "same — you just get silence and the authored difficulty."),
+                playRow);
 
         card.getStyleClass().add("overlay-card");
         card.setAlignment(Pos.TOP_LEFT);

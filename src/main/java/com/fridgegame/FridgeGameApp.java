@@ -140,7 +140,7 @@ public class FridgeGameApp extends Application {
         // The card floats over the fridge, whose zones are live drop targets. Without this
         // it would silently swallow drops aimed at the bottom-right corner.
         commentaryView.setMouseTransparent(true);
-        pauseOverlay = new PauseOverlay(() -> setPaused(false));
+        pauseOverlay = new PauseOverlay(() -> setPaused(false), this::startGame);
         startView = new StartView(this::startGame, this::showAbout);
 
         content = new HBox(14);
@@ -211,6 +211,9 @@ public class FridgeGameApp extends Application {
 
     /** Begins a fresh run from level 1. Nothing is running until this is called. */
     private void startGame() {
+        // A new game can be asked for mid-pause, where the timer is parked part-way
+        // through a second; play() alone would resume there and dock the first tick.
+        timer.stop();
         state.reset();
         levelIndex = 0;
         nextLevelFuture = null;
@@ -220,7 +223,7 @@ public class FridgeGameApp extends Application {
     }
 
     private void showAbout() {
-        showScreen(new AboutView(() -> showScreen(startView)));
+        showScreen(new AboutView(this::startGame));
     }
 
     private void togglePause() {
