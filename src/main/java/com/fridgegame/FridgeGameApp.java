@@ -1,5 +1,6 @@
 package com.fridgegame;
 
+import com.fridgegame.audio.Sfx;
 import com.fridgegame.controller.CommentaryController;
 import com.fridgegame.controller.DragHandler;
 import com.fridgegame.controller.GameController;
@@ -227,6 +228,15 @@ public class FridgeGameApp extends Application {
     }
 
     private void togglePause() {
+        // Mirrors setPaused's own guard, so a toggle that would do nothing also makes no
+        // sound — a click with no pause behind it reads as a swallowed input.
+        if (!levelRunning) {
+            return;
+        }
+        // The click lives here rather than on the HUD button, so the Esc/P shortcut — the
+        // same action by another route — sounds the same. setPaused() would be the wrong
+        // seam: forceUnpause() reaches it during level teardown, which must stay silent.
+        Sfx.click();
         setPaused(!paused);
     }
 
@@ -424,6 +434,7 @@ public class FridgeGameApp extends Application {
      * placement the player chose instead of to gravity mid-descent.
      */
     private void onPieceLocked() {
+        Sfx.lock();
         // Placing pieces is playing, even when the placement was unremarkable. Without
         // this the idle timer accuses an actively-playing player of staring at the screen.
         if (commentary != null) {

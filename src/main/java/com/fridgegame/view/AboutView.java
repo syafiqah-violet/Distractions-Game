@@ -1,5 +1,6 @@
 package com.fridgegame.view;
 
+import com.fridgegame.audio.Sfx;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -16,7 +17,7 @@ public class AboutView extends StackPane {
 
         Button playButton = new Button("Play");
         playButton.getStyleClass().addAll("primary-button", "large-action-button");
-        playButton.setOnAction(e -> onPlay.run());
+        Sfx.onAction(playButton, onPlay);
         // The card is a left-aligned VBox, so Play only reaches the right edge by sitting
         // in a row that stretches the full width. A bare Button would stay on the left.
         HBox playRow = new HBox(playButton);
