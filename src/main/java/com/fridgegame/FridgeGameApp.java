@@ -1,5 +1,8 @@
 package com.fridgegame;
 
+import com.fridgegame.audio.RemoteVoice;
+import com.fridgegame.audio.RivalVoice;
+import com.fridgegame.audio.SapiVoice;
 import com.fridgegame.audio.Sfx;
 import com.fridgegame.controller.CommentaryController;
 import com.fridgegame.controller.DragHandler;
@@ -16,6 +19,7 @@ import com.fridgegame.llm.LlmCommentator;
 import com.fridgegame.llm.LlmConfig;
 import com.fridgegame.llm.LlmLevelDirector;
 import com.fridgegame.llm.LlmLog;
+import com.fridgegame.llm.TtsConfig;
 import com.fridgegame.model.BoardMetrics;
 import com.fridgegame.model.GameState;
 import com.fridgegame.model.Level;
@@ -78,6 +82,13 @@ public class FridgeGameApp extends Application {
      */
     private static final java.time.Duration DIRECTOR_TIMEOUT = java.time.Duration.ofSeconds(6);
 
+    /**
+     * Per-request budget for synthesizing one caption. Longer than the caption request
+     * that produced it: a TTS server is doing audio work, and the line is already on
+     * screen by the time this runs, so a slow voice is late rather than wrong.
+     */
+    private static final java.time.Duration TTS_TIMEOUT = java.time.Duration.ofSeconds(8);
+
     private Scene scene;
     private GameState state;
     private GameController controller;
@@ -97,6 +108,12 @@ public class FridgeGameApp extends Application {
     private CommentaryController commentary;
     private LevelDirector director = new FixedLevelDirector();
     private CompletableFuture<Level> nextLevelFuture;
+
+    /**
+     * Says the captions out loud. Silent until {@link #connectLlm} picks a backend, and
+     * still silent afterwards if neither a TTS server nor a local speech stack answered.
+     */
+    private RivalVoice voice = RivalVoice.SILENT;
 
     private Level currentLevel;
     private int levelIndex;
@@ -257,6 +274,9 @@ public class FridgeGameApp extends Application {
         controller.setPaused(value);
         if (value) {
             timer.pause();
+            // Mid-sentence when the player hits Esc: the caption stays on the card, but
+            // the rival stops talking over a game that is no longer running.
+            voice.stop();
             if (commentary != null) {
                 commentary.notePauseStarted();
             }
@@ -312,9 +332,15 @@ public class FridgeGameApp extends Application {
                         return;
                     }
                     LlmLog.note("online: " + config.describe());
+                    connectVoice(config);
                     commentary = new CommentaryController(
                             LlmCommentator.using(new LlmClient(config, COMMENTARY_TIMEOUT)),
-                            commentaryView::show,
+                            // Reads the field per call rather than capturing it, so the
+                            // voice probe is free to land after this controller is built.
+                            line -> {
+                                commentaryView.show(line);
+                                voice.speak(line);
+                            },
                             // Monotonic rather than wall-clock: every threshold in that
                             // class is an elapsed-time test, and none of them should move
                             // because an NTP correction landed mid-level.
@@ -335,6 +361,38 @@ public class FridgeGameApp extends Application {
     }
 
     /**
+     * Picks how the rival's captions get said out loud.
+     *
+     * <p>Called only once the LLM has answered, because without it there are no captions
+     * to speak and no reason to spend a process on the local helper.
+     *
+     * <p>Order is remote-then-local. A TTS server has the better voice, but the only
+     * honest way to find out whether one is there is to ask it to say something —
+     * {@code /v1/models} is answered by plenty of things that cannot speak, including the
+     * LLM on this very host. So the probe is a real synthesis request whose audio is
+     * discarded, and only its failure selects the local fallback.
+     */
+    private void connectVoice(LlmConfig llmConfig) {
+        TtsConfig ttsConfig = TtsConfig.load(llmConfig.baseUrl());
+        if (!ttsConfig.enabled()) {
+            LlmLog.note("rival voice disabled by config - captions stay silent");
+            return;
+        }
+        RemoteVoice remote = new RemoteVoice(ttsConfig, TTS_TIMEOUT);
+        remote.probe().thenAccept(online -> Platform.runLater(() -> {
+            if (online) {
+                voice = remote;
+                LlmLog.note("rival voice: " + remote.describe());
+                return;
+            }
+            remote.close();
+            voice = SapiVoice.start();
+            LlmLog.note("no TTS server at " + ttsConfig.speechUri()
+                    + " - rival voice: " + voice.describe());
+        }));
+    }
+
+    /**
      * Builds the screen for {@code level} and starts it.
      *
      * <p>The mode decides what exists: a sorting level has no board and never starts
@@ -344,6 +402,8 @@ public class FridgeGameApp extends Application {
         // The one invariant that makes every other unpause belt-and-braces: a level never
         // starts paused, however the previous one ended.
         forceUnpause();
+        // Whatever the rival was saying was about the level that just ended.
+        voice.stop();
         currentLevel = level;
         LevelMode mode = level.mode();
         hudView.applyMode(mode);
@@ -471,6 +531,7 @@ public class FridgeGameApp extends Application {
         levelRunning = false;
         timer.stop();
         tetris.stop();
+        voice.stop();
         if (commentary != null) {
             commentary.stop();
         }
@@ -523,6 +584,8 @@ public class FridgeGameApp extends Application {
         levelRunning = false;
         timer.stop();
         tetris.stop();
+        // The run is over; a taunt landing under the Game Over card is about nothing.
+        voice.stop();
         if (commentary != null) {
             commentary.stop();
         }
@@ -563,6 +626,18 @@ public class FridgeGameApp extends Application {
                 + " time=" + state.getSecondsLeft() + "s"
                 + " unsorted=" + state.getItemsLeft()
                 + " rows=" + state.getRowsCleared();
+    }
+
+    /**
+     * Releases the voice when the window closes.
+     *
+     * <p>The local backend is a child {@code powershell.exe}, and nothing else would ever
+     * reap it: JavaFX exits, the JVM exits, and the helper sits there holding stdin open
+     * for a game that is gone.
+     */
+    @Override
+    public void stop() {
+        voice.close();
     }
 
     /** Swaps the visible screen, keeping the Scene (and its stylesheet) alive. */
