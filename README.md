@@ -117,6 +117,48 @@ through, with no commentary card and `[llm] offline (endpoint unreachable)` on t
 LLM_BASE_URL=http://127.0.0.1:9 ./mvnw javafx:run
 ```
 
+## The rival's voice
+
+The commentary captions are also spoken aloud, by [Piper](https://github.com/OHF-Voice/piper1-gpl)
+— a neural engine that runs on this machine, for free, with no account and no per-minute
+meter. That combination is the requirement: the Windows SAPI stack this replaced was free
+but sounded like a robot, and the hosted services that sound better bill by the minute,
+which does not survive a development loop that speaks a line every few seconds.
+
+One-time setup. Without it the game is unchanged and every caption still appears as text,
+with one console line explaining why nothing is being said:
+
+```bash
+python -m pip install "piper-tts[http]"
+python -m piper.download_voices en_US-lessac-medium --data-dir ~/.piper-voices
+```
+
+Run `download_voices` with no voice name to list every available voice.
+
+**A server, not a command.** Piper's CLI reloads the voice model on every invocation; its
+HTTP server loads once and keeps it resident. Measured here: ~1.9s for the first synthesis
+including warm-up, then **~160ms** per line. The game starts that server itself, waits for
+the model to load, and destroys it on exit — so playing is still one command.
+
+| Env var | Property | Default |
+|---|---|---|
+| `TTS_ENABLED` | `tts.enabled` | on *(only a literal `false` disables)* |
+| `TTS_VOICE` | `tts.voice` | `en_US-lessac-medium` |
+| `TTS_DATA_DIR` | `tts.dataDir` | `~/.piper-voices` |
+| `TTS_PYTHON` | `tts.python` | `python` |
+| `TTS_SPAWN` | `tts.spawn` | on *(`false` to run the server yourself)* |
+| `TTS_BASE_URL` | `tts.baseUrl` | `http://127.0.0.1:5000` |
+| `TTS_LENGTH_SCALE` | `tts.lengthScale` | *(Piper's own)* |
+
+Two defaults are deliberate rather than arbitrary. The server binds **loopback only**,
+because it is an unauthenticated synthesis endpoint and putting one on the network buys
+nothing. And voice models default to `~/.piper-voices` rather than Piper's own default of
+the working directory, which would drop a 60MB `.onnx` into this repository.
+
+The voice never gets in the way: it goes quiet on pause, on level end and on game over, a
+new caption cuts off the one still being spoken, and a server that fails to start costs one
+console line and nothing else.
+
 ### Two request details that are not optional
 
 Both were established by probing the live endpoint, and both are covered by
@@ -165,7 +207,8 @@ src/main/java/com/fridgegame/
 │                        # StepResult, BoardMetrics
 ├── data/                # ItemCatalog (items + level templates), HighScoreStore
 ├── director/            # LevelDirector (interface), FixedLevelDirector, LevelStats
-├── llm/                 # LlmConfig, LlmClient, JsonChat, LlmLog,
+├── audio/               # Sfx (sound effects), RivalVoice (interface), PiperVoice
+├── llm/                 # LlmConfig, TtsConfig, LlmClient, JsonChat, LlmLog,
 │                        # LlmCommentator, CommentaryEvent, LlmLevelDirector
 ├── view/                # GroceryNode, ZoneNode, FridgeView, CounterView, HudView,
 │                        # TetrisBoardView, TetrisPanel, CommentaryView,
@@ -175,6 +218,7 @@ src/main/java/com/fridgegame/
 
 src/main/resources/com/fridgegame/
 ├── styles.css
+├── sound/               # short effects: piece lock, sort, fail, applause
 └── images/food_pixel/   # pixel-art icon per grocery item (rendered via ImageView)
 src/test/java/com/fridgegame/
 ```

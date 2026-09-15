@@ -1,8 +1,7 @@
 package com.fridgegame;
 
-import com.fridgegame.audio.RemoteVoice;
+import com.fridgegame.audio.PiperVoice;
 import com.fridgegame.audio.RivalVoice;
-import com.fridgegame.audio.SapiVoice;
 import com.fridgegame.audio.Sfx;
 import com.fridgegame.controller.CommentaryController;
 import com.fridgegame.controller.DragHandler;
@@ -85,9 +84,19 @@ public class FridgeGameApp extends Application {
     /**
      * Per-request budget for synthesizing one caption. Longer than the caption request
      * that produced it: a TTS server is doing audio work, and the line is already on
-     * screen by the time this runs, so a slow voice is late rather than wrong.
+     * screen by the time this runs, so a slow voice is late rather than wrong. A warm
+     * Piper answers in about 160ms, so this is headroom rather than an expectation.
      */
     private static final java.time.Duration TTS_TIMEOUT = java.time.Duration.ofSeconds(8);
+
+    /**
+     * How long to let the speech server load its voice model before giving up on it.
+     *
+     * <p>Generous because this is a one-off cost paid off-screen while the player is still
+     * on level 1, and because model load time belongs to the machine: the same voice that
+     * is ready in two seconds here may take fifteen on a slower disk.
+     */
+    private static final java.time.Duration TTS_READY_TIMEOUT = java.time.Duration.ofSeconds(45);
 
     private Scene scene;
     private GameState state;
@@ -110,8 +119,8 @@ public class FridgeGameApp extends Application {
     private CompletableFuture<Level> nextLevelFuture;
 
     /**
-     * Says the captions out loud. Silent until {@link #connectLlm} picks a backend, and
-     * still silent afterwards if neither a TTS server nor a local speech stack answered.
+     * Says the captions out loud. Silent until {@link #connectLlm} brings a voice up, and
+     * still silent afterwards if the speech server never became ready.
      */
     private RivalVoice voice = RivalVoice.SILENT;
 
@@ -332,7 +341,7 @@ public class FridgeGameApp extends Application {
                         return;
                     }
                     LlmLog.note("online: " + config.describe());
-                    connectVoice(config);
+                    connectVoice();
                     commentary = new CommentaryController(
                             LlmCommentator.using(new LlmClient(config, COMMENTARY_TIMEOUT)),
                             // Reads the field per call rather than capturing it, so the
@@ -361,35 +370,26 @@ public class FridgeGameApp extends Application {
     }
 
     /**
-     * Picks how the rival's captions get said out loud.
+     * Brings up the voice that says the rival's captions out loud.
      *
-     * <p>Called only once the LLM has answered, because without it there are no captions
-     * to speak and no reason to spend a process on the local helper.
+     * <p>Called only once the LLM has answered, because without it there are no captions to
+     * speak and no reason to spend a process on a speech server. That also puts the model
+     * load on level 1, well before the commentary itself starts on level 3.
      *
-     * <p>Order is remote-then-local. A TTS server has the better voice, but the only
-     * honest way to find out whether one is there is to ask it to say something —
-     * {@code /v1/models} is answered by plenty of things that cannot speak, including the
-     * LLM on this very host. So the probe is a real synthesis request whose audio is
-     * discarded, and only its failure selects the local fallback.
+     * <p>Failure here is not an error. A machine without Piper installed plays exactly the
+     * same game with exactly the same captions, read rather than heard.
      */
-    private void connectVoice(LlmConfig llmConfig) {
-        TtsConfig ttsConfig = TtsConfig.load(llmConfig.baseUrl());
+    private void connectVoice() {
+        TtsConfig ttsConfig = TtsConfig.load();
         if (!ttsConfig.enabled()) {
-            LlmLog.note("rival voice disabled by config - captions stay silent");
+            LlmLog.note("rival voice disabled by config - captions stay text-only");
             return;
         }
-        RemoteVoice remote = new RemoteVoice(ttsConfig, TTS_TIMEOUT);
-        remote.probe().thenAccept(online -> Platform.runLater(() -> {
-            if (online) {
-                voice = remote;
-                LlmLog.note("rival voice: " + remote.describe());
-                return;
-            }
-            remote.close();
-            voice = SapiVoice.start();
-            LlmLog.note("no TTS server at " + ttsConfig.speechUri()
-                    + " - rival voice: " + voice.describe());
-        }));
+        PiperVoice.start(ttsConfig, TTS_TIMEOUT, TTS_READY_TIMEOUT)
+                .thenAccept(ready -> Platform.runLater(() -> {
+                    voice = ready;
+                    LlmLog.note("rival voice: " + ready.describe());
+                }));
     }
 
     /**

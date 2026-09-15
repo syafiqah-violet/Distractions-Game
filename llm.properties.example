@@ -16,3 +16,50 @@
 llm.baseUrl=
 llm.model=
 llm.apiKey=
+
+# ---------------------------------------------------------------------------
+# Speech. The rival's captions are also spoken aloud, by Piper — a neural engine
+# that runs on this machine, for free, with no account and no per-minute meter.
+#
+# One-time setup:
+#
+#   python -m pip install "piper-tts[http]"
+#   python -m piper.download_voices en_US-lessac-medium --data-dir %USERPROFILE%\.piper-voices
+#
+# Run download_voices with no voice name to list every available voice. The game
+# starts and stops the speech server itself; none of these keys are required.
+#
+# Environment equivalents, which take precedence:
+#
+#   TTS_ENABLED  TTS_BASE_URL  TTS_VOICE  TTS_SPAWN  TTS_PYTHON  TTS_DATA_DIR
+#   TTS_LENGTH_SCALE
+#
+# Without Piper installed the game is unchanged and every caption still appears as
+# text — the console explains once why nothing is being said.
+
+# Set to false to keep the rival silent. Anything else leaves the voice on.
+tts.enabled=
+
+# Voice model name, e.g. en_GB-alba-medium. Default: en_US-lessac-medium
+tts.voice=
+
+# Where the .onnx voice models live. Default: ~/.piper-voices
+# Worth setting only if you keep voices somewhere else — Piper's own default is the
+# working directory, which would put a 60MB model in this repository.
+tts.dataDir=
+
+# Interpreter used to start the server. Default: python (use "py" or a venv path if
+# "python" is not the one that has piper-tts installed).
+tts.python=
+
+# Set to false if you would rather run the server yourself, in which case the game
+# only connects to it:  python -m piper.http_server -m en_US-lessac-medium
+tts.spawn=
+
+# Where the server is. Default: http://127.0.0.1:5000 — loopback, because this is an
+# unauthenticated synthesis endpoint. The port here is also the port the game starts
+# the server on, so the two can never disagree.
+tts.baseUrl=
+
+# Speaking tempo. Below 1 is faster, above 1 is slower. Default: Piper's own.
+tts.lengthScale=

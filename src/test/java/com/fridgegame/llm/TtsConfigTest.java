@@ -9,9 +9,13 @@ import java.util.Map;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Guards the settings that decide whether the rival can speak.
+ *
+ * <p>No network and no process: every case here is pure resolution of environment over
+ * properties over defaults.
+ */
 class TtsConfigTest {
-
-    private static final String LLM_HOST = "http://172.23.35.112:8001";
 
     private static Properties props(String... keyValues) {
         Properties p = new Properties();
@@ -25,111 +29,124 @@ class TtsConfigTest {
         return values::get;
     }
 
-    @Test
-    void fallsBackToTheLlmHostAndBuiltInDefaults() {
-        TtsConfig config = TtsConfig.load(env(Map.of()), new Properties(), LLM_HOST);
-
-        assertEquals(LLM_HOST, config.baseUrl(), "a TTS server would most likely be there");
-        assertEquals(TtsConfig.DEFAULT_MODEL, config.model());
-        assertEquals(TtsConfig.DEFAULT_VOICE, config.voice());
-        assertNull(config.apiKey(), "there must be no default API key");
-        assertFalse(config.hasApiKey());
+    private static TtsConfig defaults() {
+        return TtsConfig.load(env(Map.of()), new Properties());
     }
 
     @Test
-    void isOnByDefaultSoAnUnconfiguredPlayerStillGetsAVoice() {
-        assertTrue(TtsConfig.load(env(Map.of()), new Properties(), LLM_HOST).enabled());
+    void anUnconfiguredPlayerGetsALocalTalkingRival() {
+        TtsConfig config = defaults();
+
+        assertTrue(config.enabled(), "the voice is on unless someone turns it off");
+        assertTrue(config.spawn(), "and the game starts the server itself");
+        assertEquals(TtsConfig.DEFAULT_BASE_URL, config.baseUrl());
+        assertEquals(TtsConfig.DEFAULT_VOICE, config.voice());
+        assertEquals(TtsConfig.DEFAULT_PYTHON, config.python());
+        assertNull(config.lengthScale(), "tempo is the server's business until asked otherwise");
+    }
+
+    @Test
+    void theDefaultBaseUrlIsLoopback() {
+        assertTrue(defaults().baseUrl().startsWith("http://127.0.0.1"),
+                "an unauthenticated synthesis endpoint must not be offered to the network");
+    }
+
+    @Test
+    void voiceModelsDefaultOutsideTheWorkingDirectory() {
+        String dataDir = defaults().dataDir();
+
+        assertFalse(dataDir.isBlank());
+        assertTrue(dataDir.endsWith(".piper-voices"),
+                "Piper's own default is the working directory, which would drop a 60MB "
+                        + "model into the repository root");
     }
 
     @Test
     void onlyAnExplicitFalseTurnsTheVoiceOff() {
         assertFalse(TtsConfig.load(
-                env(Map.of("TTS_ENABLED", "false")), new Properties(), LLM_HOST).enabled());
+                env(Map.of("TTS_ENABLED", "false")), new Properties()).enabled());
         assertFalse(TtsConfig.load(
-                env(Map.of("TTS_ENABLED", "FALSE")), new Properties(), LLM_HOST).enabled(),
+                env(Map.of("TTS_ENABLED", "FALSE")), new Properties()).enabled(),
                 "the check is case-insensitive");
         assertTrue(TtsConfig.load(
-                env(Map.of("TTS_ENABLED", "yes")), new Properties(), LLM_HOST).enabled(),
+                env(Map.of("TTS_ENABLED", "yes")), new Properties()).enabled(),
                 "anything that is not \"false\" leaves it on");
+    }
+
+    @Test
+    void spawningCanBeDeclinedForAnExternallyManagedServer() {
+        assertFalse(TtsConfig.load(env(Map.of("TTS_SPAWN", "false")), new Properties()).spawn());
+        assertFalse(TtsConfig.load(env(Map.of()), props("tts.spawn", "false")).spawn());
+        assertTrue(TtsConfig.load(env(Map.of("TTS_SPAWN", "true")), new Properties()).spawn());
     }
 
     @Test
     void thePropertiesFileIsUsedWhenTheEnvironmentIsSilent() {
         TtsConfig config = TtsConfig.load(env(Map.of()), props(
-                "tts.baseUrl", "http://box:8880",
-                "tts.model", "kokoro",
-                "tts.voice", "af_sky",
-                "tts.apiKey", "sk-file"), LLM_HOST);
+                "tts.baseUrl", "http://127.0.0.1:5100",
+                "tts.voice", "en_GB-alba-medium",
+                "tts.python", "py",
+                "tts.dataDir", "D:\\voices"));
 
-        assertEquals("http://box:8880", config.baseUrl());
-        assertEquals("kokoro", config.model());
-        assertEquals("af_sky", config.voice());
-        assertEquals("sk-file", config.apiKey());
-        assertTrue(config.hasApiKey());
+        assertEquals("http://127.0.0.1:5100", config.baseUrl());
+        assertEquals("en_GB-alba-medium", config.voice());
+        assertEquals("py", config.python());
+        assertEquals("D:\\voices", config.dataDir());
     }
 
     @Test
-    void theEnvironmentBeatsThePropertiesFile() {
+    void theEnvironmentWinsOverTheFile() {
         TtsConfig config = TtsConfig.load(
-                env(Map.of(
-                        "TTS_BASE_URL", "http://env:1234",
-                        "TTS_MODEL", "from-env",
-                        "TTS_VOICE", "from-env-voice")),
-                props(
-                        "tts.baseUrl", "http://box:8880",
-                        "tts.model", "from-file",
-                        "tts.voice", "from-file-voice"),
-                LLM_HOST);
+                env(Map.of("TTS_VOICE", "en_US-amy-medium")),
+                props("tts.voice", "en_GB-alba-medium"));
 
-        assertEquals("http://env:1234", config.baseUrl());
-        assertEquals("from-env", config.model());
-        assertEquals("from-env-voice", config.voice());
+        assertEquals("en_US-amy-medium", config.voice());
     }
 
     @Test
-    void eachSettingFallsBackIndependently() {
+    void blankSettingsFallBackRatherThanOverride() {
         TtsConfig config = TtsConfig.load(
-                env(Map.of("TTS_VOICE", "from-env-voice")),
-                props("tts.baseUrl", "http://box:8880"),
-                LLM_HOST);
+                env(Map.of("TTS_VOICE", "   ", "TTS_BASE_URL", "")), new Properties());
 
-        assertEquals("http://box:8880", config.baseUrl(), "file value survives");
-        assertEquals("from-env-voice", config.voice());
-        assertEquals(TtsConfig.DEFAULT_MODEL, config.model(), "and the rest default");
-    }
-
-    @Test
-    void blankValuesAreTreatedAsAbsent() {
-        TtsConfig config = TtsConfig.load(
-                env(Map.of("TTS_MODEL", "   ", "TTS_VOICE", "")),
-                new Properties(),
-                LLM_HOST);
-
-        assertEquals(TtsConfig.DEFAULT_MODEL, config.model());
         assertEquals(TtsConfig.DEFAULT_VOICE, config.voice());
+        assertEquals(TtsConfig.DEFAULT_BASE_URL, config.baseUrl());
     }
 
     @Test
-    void aTrailingSlashNeverProducesADoubleSlashInTheEndpoint() {
+    void aTrailingSlashDoesNotProduceADoubledPath() {
         TtsConfig config = TtsConfig.load(
-                env(Map.of("TTS_BASE_URL", "http://box:8880/")), new Properties(), LLM_HOST);
+                env(Map.of("TTS_BASE_URL", "http://127.0.0.1:5000/")), new Properties());
 
-        assertEquals("http://box:8880", config.baseUrl());
-        assertEquals("http://box:8880/v1/audio/speech", config.speechUri().toString());
+        assertEquals("http://127.0.0.1:5000/synthesize", config.synthesizeUri().toString());
+        assertEquals("http://127.0.0.1:5000/info", config.infoUri().toString());
     }
 
     @Test
-    void fallsBackToTheBuiltInHostWhenEvenTheLlmUrlIsMissing() {
-        TtsConfig config = TtsConfig.load(env(Map.of()), new Properties(), null);
-
-        assertEquals(LlmConfig.DEFAULT_BASE_URL, config.baseUrl());
+    void theSpawnedPortIsTakenFromTheBaseUrlSoTheyCannotDisagree() {
+        assertEquals(5100, TtsConfig.load(
+                env(Map.of("TTS_BASE_URL", "http://127.0.0.1:5100")), new Properties()).port());
+        assertEquals(5000, TtsConfig.load(
+                env(Map.of("TTS_BASE_URL", "http://127.0.0.1")), new Properties()).port(),
+                "a URL naming no port means Piper's default");
     }
 
     @Test
-    void describeNeverLeaksTheKey() {
-        TtsConfig config = TtsConfig.load(
-                env(Map.of("TTS_API_KEY", "sk-secret-value")), new Properties(), LLM_HOST);
+    void tempoIsReadWhenNumeric() {
+        assertEquals(0.9,
+                TtsConfig.load(env(Map.of("TTS_LENGTH_SCALE", "0.9")), new Properties())
+                        .lengthScale());
+    }
 
-        assertFalse(config.describe().contains("sk-secret-value"));
+    @Test
+    void aMistypedTempoIsIgnoredRatherThanFatal() {
+        assertNull(TtsConfig.load(env(Map.of("TTS_LENGTH_SCALE", "fast")), new Properties())
+                        .lengthScale(),
+                "a typo in a tuning knob must not stop the game from starting");
+    }
+
+    @Test
+    void describeNamesTheVoiceAndWhereItIs() {
+        assertEquals(TtsConfig.DEFAULT_VOICE + " @ " + TtsConfig.DEFAULT_BASE_URL,
+                defaults().describe());
     }
 }
