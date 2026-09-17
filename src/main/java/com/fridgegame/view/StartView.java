@@ -1,5 +1,6 @@
 package com.fridgegame.view;
 
+import com.fridgegame.audio.Sfx;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -24,12 +25,12 @@ public class StartView extends StackPane {
 
         Button playButton = new Button("PLAY");
         playButton.getStyleClass().addAll("pixel-button", "pixel-button-play");
-        playButton.setOnAction(e -> onPlay.run());
+        Sfx.onAction(playButton, onPlay);
 
         Button infoButton = new Button("i");
         infoButton.getStyleClass().addAll("pixel-button", "pixel-icon-button");
         infoButton.setTooltip(new Tooltip("About this game"));
-        infoButton.setOnAction(e -> onAbout.run());
+        Sfx.onAction(infoButton, onAbout);
 
         Label hint = new Label("Esc or P pauses once you are in.");
         hint.getStyleClass().add("overlay-hint");

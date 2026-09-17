@@ -1,5 +1,6 @@
 package com.fridgegame.controller;
 
+import com.fridgegame.audio.Sfx;
 import com.fridgegame.data.ItemCatalog;
 import com.fridgegame.model.GroceryItem;
 import com.fridgegame.view.FridgeView;
@@ -110,6 +111,9 @@ public final class DragHandler {
                     GroceryNode placed = new GroceryNode(item);
                     zone.getBody().getChildren().add(placed);
                     pulseCorrect(placed);
+                    // Correct drops only: the mis-sort keeps its silent red flash, which is
+                    // the one piece of feedback that should not be confusable with success.
+                    Sfx.store();
                 } else {
                     flashWrong(zone);
                 }

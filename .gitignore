@@ -1,8 +1,13 @@
 target/
 .mvn/wrapper/maven-wrapper.jar
 
-# Local LLM endpoint config — may contain an API key. Copy from llm.properties.example.
+# Local LLM and speech settings — may contain an API key. Copy from llm.properties.example.
 llm.properties
+
+# Piper voice models. They belong in tts.dataDir (~/.piper-voices by default), but Piper's
+# own download command writes to the working directory, so one stray run drops 60MB here.
+*.onnx
+*.onnx.json
 
 # IDE
 .idea/

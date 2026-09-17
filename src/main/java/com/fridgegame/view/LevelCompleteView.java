@@ -1,5 +1,6 @@
 package com.fridgegame.view;
 
+import com.fridgegame.audio.Sfx;
 import com.fridgegame.model.GameState;
 import com.fridgegame.model.LevelMode;
 import javafx.geometry.Pos;
@@ -33,7 +34,7 @@ public class LevelCompleteView extends StackPane {
 
         Button nextButton = new Button("Next Level");
         nextButton.getStyleClass().addAll("primary-button", "large-action-button");
-        nextButton.setOnAction(e -> onNext.run());
+        Sfx.onAction(nextButton, onNext);
 
         VBox card = new VBox(16, title, summary, bonusBadge, scoreBlock, nextButton);
         card.getStyleClass().add("overlay-card");

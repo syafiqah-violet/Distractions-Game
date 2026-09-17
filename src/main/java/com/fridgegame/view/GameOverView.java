@@ -1,5 +1,6 @@
 package com.fridgegame.view;
 
+import com.fridgegame.audio.Sfx;
 import com.fridgegame.model.GameState;
 import javafx.animation.Animation;
 import javafx.animation.ScaleTransition;
@@ -35,7 +36,7 @@ public class GameOverView extends StackPane {
 
         Button restartButton = new Button("Play Again");
         restartButton.getStyleClass().addAll("primary-button", "large-action-button");
-        restartButton.setOnAction(e -> onRestart.run());
+        Sfx.onAction(restartButton, onRestart);
 
         VBox card = new VBox(16, title, scoreBlock);
         card.getStyleClass().add("overlay-card");

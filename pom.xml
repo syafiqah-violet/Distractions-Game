@@ -28,6 +28,15 @@
       <version>${javafx.version}</version>
     </dependency>
 
+    <!-- AudioClip, for the three short sound effects. Buffered up front and able to
+         overlap itself, which javax.sound.sampled.Clip cannot do: a fast hard-drop
+         sequence would cut its own tail off. -->
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-media</artifactId>
+      <version>${javafx.version}</version>
+    </dependency>
+
     <!-- Builds and parses the OpenAI-compatible chat-completions payloads for the
          local LLM opponent. The HTTP side needs no dependency: java.net.http suffices. -->
     <dependency>

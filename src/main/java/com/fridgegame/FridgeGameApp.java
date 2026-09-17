@@ -1,5 +1,8 @@
 package com.fridgegame;
 
+import com.fridgegame.audio.PiperVoice;
+import com.fridgegame.audio.RivalVoice;
+import com.fridgegame.audio.Sfx;
 import com.fridgegame.controller.CommentaryController;
 import com.fridgegame.controller.DragHandler;
 import com.fridgegame.controller.GameController;
@@ -15,6 +18,7 @@ import com.fridgegame.llm.LlmCommentator;
 import com.fridgegame.llm.LlmConfig;
 import com.fridgegame.llm.LlmLevelDirector;
 import com.fridgegame.llm.LlmLog;
+import com.fridgegame.llm.TtsConfig;
 import com.fridgegame.model.BoardMetrics;
 import com.fridgegame.model.GameState;
 import com.fridgegame.model.Level;
@@ -77,6 +81,23 @@ public class FridgeGameApp extends Application {
      */
     private static final java.time.Duration DIRECTOR_TIMEOUT = java.time.Duration.ofSeconds(6);
 
+    /**
+     * Per-request budget for synthesizing one caption. Longer than the caption request
+     * that produced it: a TTS server is doing audio work, and the line is already on
+     * screen by the time this runs, so a slow voice is late rather than wrong. A warm
+     * Piper answers in about 160ms, so this is headroom rather than an expectation.
+     */
+    private static final java.time.Duration TTS_TIMEOUT = java.time.Duration.ofSeconds(8);
+
+    /**
+     * How long to let the speech server load its voice model before giving up on it.
+     *
+     * <p>Generous because this is a one-off cost paid off-screen while the player is still
+     * on level 1, and because model load time belongs to the machine: the same voice that
+     * is ready in two seconds here may take fifteen on a slower disk.
+     */
+    private static final java.time.Duration TTS_READY_TIMEOUT = java.time.Duration.ofSeconds(45);
+
     private Scene scene;
     private GameState state;
     private GameController controller;
@@ -96,6 +117,12 @@ public class FridgeGameApp extends Application {
     private CommentaryController commentary;
     private LevelDirector director = new FixedLevelDirector();
     private CompletableFuture<Level> nextLevelFuture;
+
+    /**
+     * Says the captions out loud. Silent until {@link #connectLlm} brings a voice up, and
+     * still silent afterwards if the speech server never became ready.
+     */
+    private RivalVoice voice = RivalVoice.SILENT;
 
     private Level currentLevel;
     private int levelIndex;
@@ -227,6 +254,15 @@ public class FridgeGameApp extends Application {
     }
 
     private void togglePause() {
+        // Mirrors setPaused's own guard, so a toggle that would do nothing also makes no
+        // sound — a click with no pause behind it reads as a swallowed input.
+        if (!levelRunning) {
+            return;
+        }
+        // The click lives here rather than on the HUD button, so the Esc/P shortcut — the
+        // same action by another route — sounds the same. setPaused() would be the wrong
+        // seam: forceUnpause() reaches it during level teardown, which must stay silent.
+        Sfx.click();
         setPaused(!paused);
     }
 
@@ -247,6 +283,9 @@ public class FridgeGameApp extends Application {
         controller.setPaused(value);
         if (value) {
             timer.pause();
+            // Mid-sentence when the player hits Esc: the caption stays on the card, but
+            // the rival stops talking over a game that is no longer running.
+            voice.stop();
             if (commentary != null) {
                 commentary.notePauseStarted();
             }
@@ -302,9 +341,15 @@ public class FridgeGameApp extends Application {
                         return;
                     }
                     LlmLog.note("online: " + config.describe());
+                    connectVoice();
                     commentary = new CommentaryController(
                             LlmCommentator.using(new LlmClient(config, COMMENTARY_TIMEOUT)),
-                            commentaryView::show,
+                            // Reads the field per call rather than capturing it, so the
+                            // voice probe is free to land after this controller is built.
+                            line -> {
+                                commentaryView.show(line);
+                                voice.speak(line);
+                            },
                             // Monotonic rather than wall-clock: every threshold in that
                             // class is an elapsed-time test, and none of them should move
                             // because an NTP correction landed mid-level.
@@ -325,6 +370,29 @@ public class FridgeGameApp extends Application {
     }
 
     /**
+     * Brings up the voice that says the rival's captions out loud.
+     *
+     * <p>Called only once the LLM has answered, because without it there are no captions to
+     * speak and no reason to spend a process on a speech server. That also puts the model
+     * load on level 1, well before the commentary itself starts on level 3.
+     *
+     * <p>Failure here is not an error. A machine without Piper installed plays exactly the
+     * same game with exactly the same captions, read rather than heard.
+     */
+    private void connectVoice() {
+        TtsConfig ttsConfig = TtsConfig.load();
+        if (!ttsConfig.enabled()) {
+            LlmLog.note("rival voice disabled by config - captions stay text-only");
+            return;
+        }
+        PiperVoice.start(ttsConfig, TTS_TIMEOUT, TTS_READY_TIMEOUT)
+                .thenAccept(ready -> Platform.runLater(() -> {
+                    voice = ready;
+                    LlmLog.note("rival voice: " + ready.describe());
+                }));
+    }
+
+    /**
      * Builds the screen for {@code level} and starts it.
      *
      * <p>The mode decides what exists: a sorting level has no board and never starts
@@ -334,6 +402,8 @@ public class FridgeGameApp extends Application {
         // The one invariant that makes every other unpause belt-and-braces: a level never
         // starts paused, however the previous one ended.
         forceUnpause();
+        // Whatever the rival was saying was about the level that just ended.
+        voice.stop();
         currentLevel = level;
         LevelMode mode = level.mode();
         hudView.applyMode(mode);
@@ -424,6 +494,7 @@ public class FridgeGameApp extends Application {
      * placement the player chose instead of to gravity mid-descent.
      */
     private void onPieceLocked() {
+        Sfx.lock();
         // Placing pieces is playing, even when the placement was unremarkable. Without
         // this the idle timer accuses an actively-playing player of staring at the screen.
         if (commentary != null) {
@@ -460,6 +531,7 @@ public class FridgeGameApp extends Application {
         levelRunning = false;
         timer.stop();
         tetris.stop();
+        voice.stop();
         if (commentary != null) {
             commentary.stop();
         }
@@ -472,11 +544,19 @@ public class FridgeGameApp extends Application {
         } else {
             nextLevelFuture = null;
         }
+        Sfx.applause();
         showScreen(new LevelCompleteView(
                 state, currentLevel.mode(), timeBonus, this::proceedToNextLevel));
     }
 
     private void proceedToNextLevel() {
+        // Ten seconds of applause outlives the card that started it by a wide margin, and
+        // the player can dismiss that card after one. Stopping here rather than letting it
+        // ring out keeps the ovation on the screen it belongs to.
+        //
+        // Before the endGame branch, not after: the win plays its own applause, and
+        // stopping afterwards would cut the victory off at the knees.
+        Sfx.stopApplause();
         levelIndex++;
         if (levelIndex >= ItemCatalog.LEVELS.size()) {
             endGame(true);
@@ -504,16 +584,29 @@ public class FridgeGameApp extends Application {
         levelRunning = false;
         timer.stop();
         tetris.stop();
+        // The run is over; a taunt landing under the Game Over card is about nothing.
+        voice.stop();
         if (commentary != null) {
             commentary.stop();
         }
         commentaryView.clear();
         boolean isNewHighScore = highScoreStore.submit(state.getScore());
+        // GameOverView serves both outcomes — "Game Over" and "You cleared every level!" —
+        // so the branch is load-bearing rather than defensive: a failure sting under the
+        // victory title would read as a bug.
+        if (won) {
+            Sfx.applause();
+        } else {
+            Sfx.fail();
+        }
         showScreen(new GameOverView(state, won, isNewHighScore, highScoreStore.get(), this::restart));
     }
 
     /** Game Over returns to the front door rather than straight into another run. */
     private void restart() {
+        // The third and last way off a card that may still be clapping: a win, then Play
+        // Again. Nothing should still be cheering on the start screen.
+        Sfx.stopApplause();
         state.reset();
         showScreen(startView);
     }
@@ -533,6 +626,18 @@ public class FridgeGameApp extends Application {
                 + " time=" + state.getSecondsLeft() + "s"
                 + " unsorted=" + state.getItemsLeft()
                 + " rows=" + state.getRowsCleared();
+    }
+
+    /**
+     * Releases the voice when the window closes.
+     *
+     * <p>The local backend is a child {@code powershell.exe}, and nothing else would ever
+     * reap it: JavaFX exits, the JVM exits, and the helper sits there holding stdin open
+     * for a game that is gone.
+     */
+    @Override
+    public void stop() {
+        voice.close();
     }
 
     /** Swaps the visible screen, keeping the Scene (and its stylesheet) alive. */
