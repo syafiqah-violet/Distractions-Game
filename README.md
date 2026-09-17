@@ -130,10 +130,15 @@ with one console line explaining why nothing is being said:
 
 ```bash
 python -m pip install "piper-tts[http]"
-python -m piper.download_voices en_US-lessac-medium --data-dir ~/.piper-voices
+python -m piper.download_voices en_US-lessac-medium --data-dir "$HOME/.piper-voices"
 ```
 
 Run `download_voices` with no voice name to list every available voice.
+
+Nothing else is required. Every `tts.*` setting below is optional, and **leaving one
+blank is what selects its default** — in particular `tts.spawn=false` does not mean
+"no thanks", it means the game will never start the speech server and will only
+connect to one you are running yourself.
 
 **A server, not a command.** Piper's CLI reloads the voice model on every invocation; its
 HTTP server loads once and keeps it resident. Measured here: ~1.9s for the first synthesis

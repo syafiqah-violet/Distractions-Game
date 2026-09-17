@@ -53,6 +53,13 @@ public final class PiperVoice implements RivalVoice {
     /** How often to ask a starting server whether its model is loaded yet. */
     private static final Duration POLL_INTERVAL = Duration.ofMillis(500);
 
+    /**
+     * Per-poll budget. Deliberately longer than {@link #POLL_INTERVAL}: a request that
+     * expires sooner than the client is allowed to spend connecting would report a
+     * loaded server as absent whenever the machine is briefly busy.
+     */
+    private static final Duration POLL_TIMEOUT = Duration.ofSeconds(3);
+
     /** Long enough for any caption; a runaway line is truncated rather than sent whole. */
     private static final int MAX_CHARS = 400;
 
@@ -105,25 +112,45 @@ public final class PiperVoice implements RivalVoice {
      */
     public static CompletableFuture<RivalVoice> start(
             TtsConfig config, Duration requestTimeout, Duration readinessTimeout) {
-        Process process = null;
-        Path errorLog = null;
-        if (config.spawn()) {
-            try {
-                // Piper writes its startup failures to stderr and then exits. Keeping them
-                // is what lets a failed start say "Unable to find voice" instead of just
-                // timing out with no explanation.
-                errorLog = Files.createTempFile("fridge-piper-", ".log");
-                errorLog.toFile().deleteOnExit();
-                process = new ProcessBuilder(command(config))
-                        .redirectOutput(ProcessBuilder.Redirect.DISCARD)
-                        .redirectError(errorLog.toFile())
-                        .start();
-            } catch (Exception e) {
-                LlmLog.note("rival voice: could not start " + config.python() + " - "
-                        + e.getMessage());
+        PiperVoice attached = new PiperVoice(config, requestTimeout, null, null);
+        return attached.ping().thenCompose(alreadyServing -> {
+            if (alreadyServing) {
+                // Someone is already on that port: this run's own server surviving an
+                // unclean exit, or one the player started by hand. Either way, spawning a
+                // second would only fail to bind, and the failure would surface as a
+                // readiness timeout that says nothing about the real cause.
+                LlmLog.note("rival voice: attached to the piper already on " + config.baseUrl());
+                return CompletableFuture.completedFuture((RivalVoice) attached);
+            }
+            attached.close();
+            if (!config.spawn()) {
+                LlmLog.note("rival voice: nothing answering " + config.infoUri()
+                        + " and tts.spawn=false, so nothing was started");
                 return CompletableFuture.completedFuture(RivalVoice.SILENT);
             }
+            return spawn(config, requestTimeout, readinessTimeout);
+        });
+    }
+
+    private static CompletableFuture<RivalVoice> spawn(
+            TtsConfig config, Duration requestTimeout, Duration readinessTimeout) {
+        Process process;
+        Path errorLog;
+        try {
+            // Piper writes its startup failures to stderr and then exits. Keeping them is
+            // what lets a failed start say "Unable to find voice" instead of just timing
+            // out with no explanation.
+            errorLog = Files.createTempFile("fridge-piper-", ".log");
+            errorLog.toFile().deleteOnExit();
+            process = new ProcessBuilder(command(config))
+                    .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                    .redirectError(errorLog.toFile())
+                    .start();
+        } catch (Exception e) {
+            LlmLog.note("rival voice: could not start " + config.python() + " - " + e.getMessage());
+            return CompletableFuture.completedFuture(RivalVoice.SILENT);
         }
+        LlmLog.note("rival voice: starting piper " + config.voice() + " on " + config.baseUrl());
         PiperVoice voice = new PiperVoice(config, requestTimeout, process, errorLog);
         return voice.awaitReady(readinessTimeout).thenApply(ready -> {
             if (ready) {
@@ -132,6 +159,22 @@ public final class PiperVoice implements RivalVoice {
             voice.close();
             return RivalVoice.SILENT;
         });
+    }
+
+    /**
+     * One shot at {@code /info}, to find out whether a server is already there.
+     *
+     * <p>Deliberately generous with time for a single request: this decides whether to
+     * spawn a competing process, and answering "no" too eagerly is the expensive mistake.
+     */
+    private CompletableFuture<Boolean> ping() {
+        HttpRequest request = HttpRequest.newBuilder(config.infoUri())
+                .timeout(Duration.ofSeconds(2))
+                .GET()
+                .build();
+        return http.sendAsync(request, HttpResponse.BodyHandlers.discarding())
+                .thenApply(response -> response.statusCode() == 200)
+                .exceptionally(e -> false);
     }
 
     /** The server command line. Package-private so a test can assert it without spawning. */
@@ -184,12 +227,15 @@ public final class PiperVoice implements RivalVoice {
             return;
         }
         if (System.nanoTime() > deadline) {
-            LlmLog.note("rival voice: piper did not answer " + config.infoUri() + " in time");
+            // Report what Piper was saying, not merely that time ran out. A bare timeout
+            // is the one failure here that tells you nothing about how to fix it.
+            LlmLog.note("rival voice: piper did not answer " + config.infoUri()
+                    + " in time - last words: " + startupError());
             ready.complete(false);
             return;
         }
         HttpRequest request = HttpRequest.newBuilder(config.infoUri())
-                .timeout(POLL_INTERVAL)
+                .timeout(POLL_TIMEOUT)
                 .GET()
                 .build();
         http.sendAsync(request, HttpResponse.BodyHandlers.discarding())
@@ -222,7 +268,7 @@ public final class PiperVoice implements RivalVoice {
     /** The most useful line Piper wrote before dying, for the console. */
     private String startupError() {
         if (errorLog == null) {
-            return "no output captured";
+            return "nothing on stderr";
         }
         try {
             List<String> lines = Files.readAllLines(errorLog, StandardCharsets.UTF_8);
@@ -235,7 +281,7 @@ public final class PiperVoice implements RivalVoice {
         } catch (Exception e) {
             // Nothing to add; the caller still reports the failure itself.
         }
-        return "no output captured";
+        return "nothing on stderr";
     }
 
     @Override

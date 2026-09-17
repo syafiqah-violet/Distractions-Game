@@ -26,8 +26,12 @@ llm.apiKey=
 #   python -m pip install "piper-tts[http]"
 #   python -m piper.download_voices en_US-lessac-medium --data-dir %USERPROFILE%\.piper-voices
 #
-# Run download_voices with no voice name to list every available voice. The game
-# starts and stops the speech server itself; none of these keys are required.
+# Run download_voices with no voice name to list every available voice.
+#
+# EVERY KEY BELOW IS OPTIONAL. Leaving one blank means "use the default", which is
+# what you want unless you have a specific reason otherwise — the game starts and
+# stops the speech server itself. Do not write "false" into a blank just to fill it
+# in: these are switches, and "false" turns things off.
 #
 # Environment equivalents, which take precedence:
 #
@@ -37,29 +41,37 @@ llm.apiKey=
 # Without Piper installed the game is unchanged and every caption still appears as
 # text — the console explains once why nothing is being said.
 
-# Set to false to keep the rival silent. Anything else leaves the voice on.
+# Leave blank. Set to false only to keep the rival silent.
 tts.enabled=
 
 # Voice model name, e.g. en_GB-alba-medium. Default: en_US-lessac-medium
 tts.voice=
 
-# Where the .onnx voice models live. Default: ~/.piper-voices
-# Worth setting only if you keep voices somewhere else — Piper's own default is the
-# working directory, which would put a 60MB model in this repository.
+# Leave blank. Where the .onnx voice models live; blank means a .piper-voices folder
+# in your home directory. Worth setting only if you keep voices somewhere else —
+# Piper's own default is the working directory, which would put a 60MB model in this
+# repository. A leading ~ is expanded, but an absolute path is clearer.
 tts.dataDir=
 
-# Interpreter used to start the server. Default: python (use "py" or a venv path if
-# "python" is not the one that has piper-tts installed).
+# Leave blank. Interpreter used to start the server; blank means "python". Set it to
+# "py" or a venv path if "python" is not the one that has piper-tts installed.
 tts.python=
 
-# Set to false if you would rather run the server yourself, in which case the game
-# only connects to it:  python -m piper.http_server -m en_US-lessac-medium
+# LEAVE BLANK unless you mean it. Blank lets the game start the speech server for
+# you, which is what makes the voice work with no further setup.
+#
+# Setting this to false means the game will NEVER start a server and will only
+# connect to one you are already running yourself, like this:
+#
+#   python -m piper.http_server -m en_US-lessac-medium --data-dir <your tts.dataDir>
+#
+# With it false and no such server running, the rival is simply silent.
 tts.spawn=
 
-# Where the server is. Default: http://127.0.0.1:5000 — loopback, because this is an
-# unauthenticated synthesis endpoint. The port here is also the port the game starts
-# the server on, so the two can never disagree.
+# Leave blank. Where the server is; blank means http://127.0.0.1:5000 — loopback,
+# because this is an unauthenticated synthesis endpoint. The port here is also the
+# port the game starts the server on, so the two can never disagree.
 tts.baseUrl=
 
-# Speaking tempo. Below 1 is faster, above 1 is slower. Default: Piper's own.
+# Leave blank. Speaking tempo: below 1 is faster, above 1 is slower.
 tts.lengthScale=

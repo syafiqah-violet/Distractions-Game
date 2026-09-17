@@ -59,7 +59,23 @@ public record TtsConfig(
         baseUrl = trimTrailingSlash(blankToNull(baseUrl) == null ? DEFAULT_BASE_URL : baseUrl);
         voice = blankToNull(voice) == null ? DEFAULT_VOICE : voice.trim();
         python = blankToNull(python) == null ? DEFAULT_PYTHON : python.trim();
-        dataDir = blankToNull(dataDir) == null ? defaultDataDir() : dataDir.trim();
+        dataDir = blankToNull(dataDir) == null ? defaultDataDir() : expandHome(dataDir.trim());
+    }
+
+    /**
+     * Expands a leading {@code ~} the way a shell would.
+     *
+     * <p>Java does not do this, so a path copied out of a shell command lands as a literal
+     * directory named "~" — a silent wrong answer rather than an error. Every document
+     * that mentions this setting writes the home directory that way, so handling it here
+     * is cheaper than expecting nobody to.
+     */
+    private static String expandHome(String path) {
+        if (!path.equals("~") && !path.startsWith("~/") && !path.startsWith("~\\")) {
+            return path;
+        }
+        String home = System.getProperty("user.home", ".");
+        return path.length() == 1 ? home : Path.of(home, path.substring(2)).toString();
     }
 
     /**
