@@ -9,7 +9,7 @@
   <artifactId>fridge-game</artifactId>
   <version>1.0-SNAPSHOT</version>
   <packaging>jar</packaging>
-  <name>Refrigerator Sorting Game</name>
+  <name>Distractions Game</name>
 
   <properties>
     <maven.compiler.release>21</maven.compiler.release>

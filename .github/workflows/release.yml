@@ -78,10 +78,10 @@ jobs:
         run: |
           jpackage \
             --type app-image \
-            --name FridgeGame \
+            --name DistractionsGame \
             --app-version "${{ steps.version.outputs.version }}" \
             --vendor "syafiqah-violet" \
-            --description "Refrigerator Sorting Game" \
+            --description "Distractions Game" \
             --input build/app-input \
             --main-jar "${{ steps.stage.outputs.jar }}" \
             --main-class com.fridgegame.Launcher \
@@ -92,18 +92,18 @@ jobs:
         id: archive
         working-directory: build/dist
         run: |
-          name="FridgeGame-${{ steps.version.outputs.version }}-${{ matrix.label }}.${{ matrix.archive }}"
+          name="DistractionsGame-${{ steps.version.outputs.version }}-${{ matrix.label }}.${{ matrix.archive }}"
           if [[ "${{ matrix.archive }}" == "zip" ]]; then
-            7z a -tzip "$name" ./FridgeGame > /dev/null
+            7z a -tzip "$name" ./DistractionsGame > /dev/null
           else
-            tar -czf "$name" FridgeGame
+            tar -czf "$name" DistractionsGame
           fi
           echo "name=$name" >> "$GITHUB_OUTPUT"
           ls -lh "$name"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: FridgeGame-${{ matrix.label }}
+          name: DistractionsGame-${{ matrix.label }}
           path: build/dist/${{ steps.archive.outputs.name }}
           if-no-files-found: error
 
@@ -129,9 +129,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cat > notes.md <<'EOF'
-          Download the archive for your platform, unpack it, and run `FridgeGame.exe`
-          (Windows) or `bin/FridgeGame` (Linux). A Java runtime is bundled — nothing to
-          install.
+          Download the archive for your platform, unpack it, and run `DistractionsGame.exe`
+          (Windows) or `bin/DistractionsGame` (Linux). A Java runtime is bundled — nothing
+          to install.
 
           **The rival commentator and its voice are optional, and off by default here.**
           They need services running on your own machine, so a fresh download plays the

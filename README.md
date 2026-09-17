@@ -1,4 +1,4 @@
-# Refrigerator Sorting Game
+# Distractions Game
 
 JavaFX game in two halves: play **Tetris** to earn groceries, then drag each earned item
 into the right fridge zone. Three levels, each teaching a different thing — and a local
@@ -16,9 +16,10 @@ one.
 ## Download and play
 
 Grab the archive for your platform from
-[Releases](https://github.com/syafiqah-violet/Refrigerator_DragDropGame/releases), unpack
-it, and run `FridgeGame.exe` (Windows) or `bin/FridgeGame` (Linux). A Java runtime is
-bundled, which is both why nothing needs installing and why the download is ~95MB.
+[Releases](https://github.com/syafiqah-violet/Distractions-Game/releases), unpack
+it, and run `DistractionsGame.exe` (Windows) or `bin/DistractionsGame` (Linux). A Java
+runtime is bundled, which is both why nothing needs installing and why the download is
+~95MB.
 
 The build is unsigned, so Windows shows "unknown publisher" on first launch — **More info
 → Run anyway**.
@@ -221,6 +222,11 @@ are no groceries to earn, so stacking has to be worth the risk. Finishing a sort
 early pays 2 points per second left.
 
 ## Layout
+
+The game ships as **Distractions Game**, but the code underneath still says `fridgegame` —
+`com.fridgegame.*`, `FridgeGameApp`, the `fridge-game` artifact. The rename was to the
+product, not the package: renaming the latter would rewrite every file for no behavioural
+gain, so only the user-facing name moved.
 
 ```
 src/main/java/com/fridgegame/
