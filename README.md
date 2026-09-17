@@ -13,7 +13,26 @@ LLM plays the rival commentator and the difficulty director rather than playing 
 Losing all three lives ends the run on any level. A wrong drop and a top-out each cost
 one.
 
+## Download and play
+
+Grab the archive for your platform from
+[Releases](https://github.com/syafiqah-violet/Refrigerator_DragDropGame/releases), unpack
+it, and run `FridgeGame.exe` (Windows) or `bin/FridgeGame` (Linux). A Java runtime is
+bundled, which is both why nothing needs installing and why the download is ~95MB.
+
+The build is unsigned, so Windows shows "unknown publisher" on first launch — **More info
+→ Run anyway**.
+
+A downloaded copy plays the **offline path**. The rival's commentary and the adaptive
+difficulty both want an LLM endpoint on your own machine, and the default address is a LAN
+box that is not yours; all three levels play through regardless, just without those two.
+[Configuration](#configuration) covers pointing it at your own. To watch the model think —
+the `[llm]` and `LLM thinking:` lines — run from source: the packaged launcher opens no
+console of its own.
+
 ## Requirements
+
+Only for building or running from source. The release download needs none of it.
 
 - JDK 21+ (found: Temurin 21.0.7)
 - No Maven install needed — use the bundled wrapper (`mvnw` / `mvnw.cmd`)
@@ -243,6 +262,28 @@ plain Java, which is why the suite runs headless with no display and no network.
 `TetrisBoardView` draws onto a `Canvas` rather than building 200 `Region` nodes, so the
 scene graph is not doing layout passes 20 times a second while you drag groceries.
 
+## Releasing
+
+`git tag v1.0.0 && git push origin v1.0.0` is the whole release process.
+[`.github/workflows/release.yml`](.github/workflows/release.yml) then runs the suite,
+builds a self-contained app image on `windows-latest` and `ubuntu-latest`, and attaches
+both archives to a GitHub Release named after the tag. Running it from the Actions tab
+instead (`workflow_dispatch`) builds and uploads the same archives as run artifacts
+without publishing anything, which is how to test a packaging change.
+
+Two constraints are why the build looks the way it does. The JavaFX artifacts carry a
+platform classifier, so an image can only be built on the OS it targets — hence a matrix
+rather than one job. And `jpackage --app-version` rejects `1.0-SNAPSHOT`, so the version
+comes from the tag (`v1.0.0` → `1.0.0`) and never from the pom.
+
+`--add-modules` is spelled out rather than left to `jdeps`, because three of the modules
+this game needs cannot be inferred from a classpath scan: `java.net.http` (`LlmClient`),
+`java.prefs` (`HighScoreStore`) and `jdk.unsupported` (JavaFX's use of `sun.misc.Unsafe`).
+A runtime missing any of them builds fine and fails at launch.
+
+No icon is bundled yet — `jpackage` wants a `.ico`/`.icns` and this repository has only
+PNGs, so the image ships with the stock Java icon.
+
 ## Progress
 
 - [x] **Phase 0 — Setup:** pom, wrapper, `Launcher`, blank window
@@ -287,6 +328,8 @@ scene graph is not doing layout passes 20 times a second while you drag grocerie
 |---|---|---|
 | JavaFX | 21.0.12 | latest 21 LTS patch (plan said 21.0.4) |
 | javafx-maven-plugin | 0.0.8 | confirmed still the newest release |
+| maven-jar-plugin | 3.4.2 | manifest: `Launcher` + `libs/` classpath |
+| maven-dependency-plugin | 3.8.1 | fills `target/libs/` for `jpackage` |
 | JUnit Jupiter | 5.14.4 | |
 | Jackson Databind | 2.22.2 | only for the LLM request/response JSON |
 | Maven (wrapper) | 3.9.16 | |
