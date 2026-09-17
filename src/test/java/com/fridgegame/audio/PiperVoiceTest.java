@@ -96,6 +96,18 @@ class PiperVoiceTest {
     }
 
     @Test
+    void spawningIsDeclinedWhenNothingAnswersAndTheCallerSaidNotTo() throws Exception {
+        RivalVoice voice = PiperVoice.start(
+                        config(false, "http://127.0.0.1:9"),
+                        Duration.ofMillis(500),
+                        Duration.ofMillis(800))
+                .get();
+
+        assertSame(RivalVoice.SILENT, voice,
+                "tts.spawn=false means connect or stay quiet, never start a server");
+    }
+
+    @Test
     void captionsAreFlattenedToOneLineAndCapped() {
         assertEquals("one two", PiperVoice.sanitize("one\r\ntwo"));
         assertEquals("trimmed", PiperVoice.sanitize("  trimmed  "));
