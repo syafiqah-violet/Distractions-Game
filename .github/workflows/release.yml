@@ -1,0 +1,149 @@
+name: Release
+
+# Builds a self-contained app image per OS and attaches it to a GitHub Release.
+#
+# Tag push publishes; workflow_dispatch builds the same artifacts without publishing,
+# so the packaging can be exercised without cutting a throwaway tag.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Package (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: windows
+            archive: zip
+          - os: ubuntu-latest
+            label: linux
+            archive: tar.gz
+
+    # One script for both runners - Windows runners ship Git Bash.
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # jpackage ships with the JDK, so this is the only toolchain step.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      # mvnw is committed without the executable bit, which only Linux minds.
+      - name: Build and test
+        run: |
+          chmod +x ./mvnw
+          ./mvnw -B clean package
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="0.0.0"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Packaging version $version"
+
+      # jpackage wants one directory holding everything that goes in the image. The jar
+      # name tracks the pom version, so glob it rather than hardcoding 1.0-SNAPSHOT.
+      - name: Stage jpackage input
+        id: stage
+        run: |
+          mkdir -p build/app-input
+          jar_path=$(ls target/fridge-game-*.jar | head -1)
+          cp "$jar_path" build/app-input/
+          cp -r target/libs build/app-input/libs
+          echo "jar=$(basename "$jar_path")" >> "$GITHUB_OUTPUT"
+
+      # --add-modules is explicit rather than left to jdeps: java.net.http for LlmClient,
+      # java.prefs for HighScoreStore, jdk.unsupported for JavaFX's sun.misc.Unsafe use.
+      # None of those are reliably inferred from a classpath scan.
+      - name: Build app image
+        run: |
+          jpackage \
+            --type app-image \
+            --name DistractionsGame \
+            --app-version "${{ steps.version.outputs.version }}" \
+            --vendor "syafiqah-violet" \
+            --description "Distractions Game" \
+            --input build/app-input \
+            --main-jar "${{ steps.stage.outputs.jar }}" \
+            --main-class com.fridgegame.Launcher \
+            --dest build/dist \
+            --add-modules java.base,java.desktop,java.logging,java.management,java.naming,java.net.http,java.prefs,java.scripting,jdk.unsupported,jdk.crypto.ec
+
+      - name: Archive app image
+        id: archive
+        working-directory: build/dist
+        run: |
+          name="DistractionsGame-${{ steps.version.outputs.version }}-${{ matrix.label }}.${{ matrix.archive }}"
+          if [[ "${{ matrix.archive }}" == "zip" ]]; then
+            7z a -tzip "$name" ./DistractionsGame > /dev/null
+          else
+            tar -czf "$name" DistractionsGame
+          fi
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          ls -lh "$name"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DistractionsGame-${{ matrix.label }}
+          path: build/dist/${{ steps.archive.outputs.name }}
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: build
+    # Dispatch runs stop here: the artifacts are on the run, but nothing is published.
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      # gh is preinstalled and authenticates with GITHUB_TOKEN, so the publish path
+      # carries no third-party action.
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cat > notes.md <<'EOF'
+          Download the archive for your platform, unpack it, and run `DistractionsGame.exe`
+          (Windows) or `bin/DistractionsGame` (Linux). A Java runtime is bundled — nothing
+          to install.
+
+          **The rival commentator and its voice are optional, and off by default here.**
+          They need services running on your own machine, so a fresh download plays the
+          offline path: all three levels play normally, without commentary or adaptive
+          difficulty. To switch them on, point `LLM_BASE_URL` at your own
+          OpenAI-compatible endpoint and follow `llm.properties.example`.
+
+          Windows shows an "unknown publisher" warning on first launch — the build is
+          unsigned. Choose **More info → Run anyway**.
+          EOF
+
+          gh release create "$GITHUB_REF_NAME" \
+            artifacts/* \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file notes.md

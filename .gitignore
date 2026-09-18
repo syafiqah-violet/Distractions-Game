@@ -1,6 +1,9 @@
 target/
 .mvn/wrapper/maven-wrapper.jar
 
+# Staging and output for a local `jpackage` dry run, mirroring what release.yml does.
+build/
+
 # Local LLM and speech settings — may contain an API key. Copy from llm.properties.example.
 llm.properties
 

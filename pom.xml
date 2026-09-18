@@ -9,7 +9,7 @@
   <artifactId>fridge-game</artifactId>
   <version>1.0-SNAPSHOT</version>
   <packaging>jar</packaging>
-  <name>Refrigerator Sorting Game</name>
+  <name>Distractions Game</name>
 
   <properties>
     <maven.compiler.release>21</maven.compiler.release>
@@ -74,6 +74,46 @@
         <configuration>
           <mainClass>${main.class}</mainClass>
         </configuration>
+      </plugin>
+
+      <!-- Makes the jar runnable on its own: Launcher in the manifest, and a Class-Path
+           pointing at the sibling libs/ the plugin below fills. JavaFX from the classpath
+           only works because Launcher is not an Application subclass. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.2</version>
+        <configuration>
+          <archive>
+            <manifest>
+              <mainClass>${main.class}</mainClass>
+              <addClasspath>true</addClasspath>
+              <classpathPrefix>libs/</classpathPrefix>
+            </manifest>
+          </archive>
+        </configuration>
+      </plugin>
+
+      <!-- target/libs/ is what jpackage bundles. The JavaFX artifacts resolve with a
+           platform classifier, so whichever OS runs this build is the OS the natives
+           are for - hence the per-OS matrix in .github/workflows/release.yml. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.8.1</version>
+        <executions>
+          <execution>
+            <id>copy-runtime-deps</id>
+            <phase>package</phase>
+            <goals>
+              <goal>copy-dependencies</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>${project.build.directory}/libs</outputDirectory>
+              <includeScope>runtime</includeScope>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>
