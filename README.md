@@ -12,8 +12,8 @@ director rather than playing Tetris.
 | 3 | Both — clear a row to earn a grocery, then sort it | 3 min | every item sorted | clock expires with items left |
 | 4 | Mix and match — 12 grocery cards face down, flip two at a time | 60s | all 6 pairs matched | clock expires with pairs left |
 
-Losing all three lives ends the run on any level. A wrong drop, a top-out and a mismatched
-pair each cost one.
+Losing all three lives ends the run on any level. A wrong drop and a top-out each cost one.
+A mismatched pair does not — on level 4 the clock is the only thing that can beat you.
 
 ## Download and play
 
@@ -223,15 +223,18 @@ quota to retune.
 Director bounds: gravity 300–800ms, quota 3–10 items. A quota is never drawn from a single
 food category, so the fridge stays a sorting problem.
 
-Scoring: a correct drop or a matched pair pays 10 × (1 + streak/5); a wrong drop or a
-mismatch costs 5 and a life. Cleared rows pay 20/60/150/400 for 1/2/3/4 at once — steeply
-superlinear, because on level 2 there are no groceries to earn, so stacking has to be worth
-the risk. Finishing a level early pays 2 points per second left.
+Scoring: a correct drop or a matched pair pays 10 × (1 + streak/5). A wrong drop costs 5 and
+a life; a mismatched pair costs 5 and the streak but **no life**. Cleared rows pay
+20/60/150/400 for 1/2/3/4 at once — steeply superlinear, because on level 2 there are no
+groceries to earn, so stacking has to be worth the risk. Finishing a level early pays 2
+points per second left.
 
-**Level 4 is not tuned yet.** Six pairs costs even a player with a perfect memory four to
-six mismatches to solve, lives carry over between levels, and there are only three of them.
-`GameController.MISMATCH_COSTS_LIFE` and `FREE_MISMATCHES` are the dials; play-test before
-trusting the current settings.
+The mismatch is the one mistake scored more gently than a wrong drop, and deliberately so.
+Turning two cards over is how you find out what is under them, so the first guess at any
+pair is unavoidable rather than careless — six pairs costs even a perfect memory four to six
+mismatches to solve. With three lives that carry over from earlier levels, charging one per
+mismatch made level 4 a formality to fail. The clock is the real pressure: a mismatch costs
+the seconds spent reading it, which scales with how lost the player actually is.
 
 ## Layout
 

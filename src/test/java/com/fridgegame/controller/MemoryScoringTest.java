@@ -99,7 +99,7 @@ class MemoryScoringTest {
     // ------------------------------------------------------------ mismatches
 
     @Test
-    void aMismatchCostsPointsTheStreakAndALife() {
+    void aMismatchCostsPointsAndTheStreakButNeverALife() {
         startMemoryLevel();
         controller.awardMatchedPair();
         int before = state.getScore();
@@ -108,7 +108,8 @@ class MemoryScoringTest {
 
         assertEquals(before - 5, state.getScore());
         assertEquals(0, state.getStreak());
-        assertEquals(2, state.getLives(), "the same cost as putting a grocery in the wrong zone");
+        assertEquals(3, state.getLives(),
+                "turning two cards over is how you find out what is under them");
         assertFalse(over);
     }
 
@@ -123,17 +124,31 @@ class MemoryScoringTest {
     }
 
     @Test
-    void theThirdMismatchEndsTheRun() {
+    void noNumberOfMismatchesEndsTheRun() {
+        // Six pairs costs even a perfect memory four to six mismatches to solve, so a life
+        // per mismatch would make the level a formality to fail. Only the clock can end it.
         startMemoryLevel();
 
-        controller.penalizeMismatch();
-        controller.penalizeMismatch();
+        for (int i = 0; i < 20; i++) {
+            controller.penalizeMismatch();
+        }
+
+        assertEquals(3, state.getLives());
         assertFalse(over);
+        assertEquals(-100, state.getScore(), "the points still go, twenty times over");
+    }
+
+    @Test
+    void aMismatchDoesNotSpendLivesLostOnEarlierLevels() {
+        startMemoryLevel();
+        // Arrive at level 4 on the last life, as a player who struggled with levels 1-3 would.
+        state.setLives(1);
 
         controller.penalizeMismatch();
+        controller.penalizeMismatch();
 
-        assertEquals(0, state.getLives());
-        assertTrue(over);
+        assertEquals(1, state.getLives());
+        assertFalse(over, "one life left must not make the memory level unplayable");
     }
 
     // ---------------------------------------------------------------- clocks

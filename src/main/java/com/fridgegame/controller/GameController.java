@@ -32,21 +32,17 @@ public class GameController {
     /**
      * What a mismatched pair on the mix-and-match level costs.
      *
-     * <p>Named rather than inlined because these are the level's difficulty dial and it is
-     * almost certainly not set right yet. Six pairs costs even a player with a perfect memory
-     * four to six mismatches to solve, lives carry over from earlier levels, and there are
-     * only three of them — so as it stands, reaching Level 4 on one life is close to an
-     * automatic loss. If play-testing bears that out, {@link #FREE_MISMATCHES} buys a grace
-     * period and {@link #MISMATCH_COSTS_LIFE} takes lives out of it altogether, without
-     * anything else having to move.
+     * <p>Points and the streak, and deliberately <b>not</b> a life — the one place a mistake
+     * is scored differently from a wrong drop. Turning two cards over is how you find out
+     * what is under them, so the first guess at any pair is unavoidable rather than careless:
+     * six pairs costs even a perfect memory four to six mismatches to solve. Charging a life
+     * for each, out of three that carry over from earlier levels, would make the level a
+     * formality to fail rather than a puzzle to solve.
+     *
+     * <p>The clock is the real pressure here. A mismatch costs the seconds spent reading it,
+     * which is a penalty that scales with how lost the player actually is.
      */
     private static final int MISMATCH_PENALTY = 5;
-
-    /** Whether a mismatch costs a life, exactly as a wrong drop does. */
-    private static final boolean MISMATCH_COSTS_LIFE = true;
-
-    /** Mismatches per level that cost points but no life. Zero means the first one already does. */
-    private static final int FREE_MISMATCHES = 0;
 
     private final GameState state;
 
@@ -60,7 +56,6 @@ public class GameController {
     private int correctDrops;
     private int wrongDrops;
     private int topOuts;
-    private int mismatches;
 
     private IntConsumer onLevelComplete = bonus -> { };
     private Runnable onGameOver = () -> { };
@@ -96,7 +91,6 @@ public class GameController {
         correctDrops = 0;
         wrongDrops = 0;
         topOuts = 0;
-        mismatches = 0;
         if (level.mode() == LevelMode.SORT_ONLY) {
             releaseAll();
         }
@@ -234,28 +228,20 @@ public class GameController {
     /**
      * Charges a mismatched pair on the mix-and-match level.
      *
-     * <p>The same shape as a wrong drop — points, streak, a life — because it is the same
-     * mistake in a different costume, and a player who has learnt what a wrong drop costs
-     * should not have to learn a second penalty. Whether a life is actually charged is
-     * {@link #MISMATCH_COSTS_LIFE}'s business; read the note there before tuning it.
+     * <p>Costs points and the streak but never a life, which is the one asymmetry with a
+     * wrong drop; {@link #MISMATCH_PENALTY} has the reasoning. A memory level can therefore
+     * only be lost on the clock, never by running out of lives on it.
      */
     public void penalizeMismatch() {
         if (paused) {
             return;
         }
         onActivity.run();
-        mismatches++;
-        // Counted as a wrong drop as well, so the director sees one measure of "got it wrong"
-        // rather than a level that looks flawless because its mistakes had a different name.
+        // Counted as a wrong drop, so the director sees one measure of "got it wrong" rather
+        // than a level that looks flawless because its mistakes had a different name.
         wrongDrops++;
         state.setScore(state.getScore() - MISMATCH_PENALTY);
         state.setStreak(0);
-        if (MISMATCH_COSTS_LIFE && mismatches > FREE_MISMATCHES) {
-            state.setLives(state.getLives() - 1);
-            if (state.getLives() <= 0) {
-                onGameOver.run();
-            }
-        }
     }
 
     /**
