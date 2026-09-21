@@ -24,7 +24,7 @@ jobs:
           - os: windows-latest
             label: windows
             archive: zip
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             label: linux
             archive: tar.gz
 
@@ -34,10 +34,10 @@ jobs:
         shell: bash
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # jpackage ships with the JDK, so this is the only toolchain step.
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
@@ -101,7 +101,7 @@ jobs:
           echo "name=$name" >> "$GITHUB_OUTPUT"
           ls -lh "$name"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: DistractionsGame-${{ matrix.label }}
           path: build/dist/${{ steps.archive.outputs.name }}
@@ -112,18 +112,19 @@ jobs:
     needs: build
     # Dispatch runs stop here: the artifacts are on the run, but nothing is published.
     if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
 
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
           merge-multiple: true
 
       # gh is preinstalled and authenticates with GITHUB_TOKEN, so the publish path
-      # carries no third-party action.
+      # carries no third-party action. --repo is required rather than optional: this job
+      # never checks out, so gh has no git remote to infer the repository from.
       - name: Create release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -145,5 +146,6 @@ jobs:
 
           gh release create "$GITHUB_REF_NAME" \
             artifacts/* \
+            --repo "$GITHUB_REPOSITORY" \
             --title "$GITHUB_REF_NAME" \
             --notes-file notes.md
