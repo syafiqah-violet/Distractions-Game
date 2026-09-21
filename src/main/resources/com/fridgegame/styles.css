@@ -243,6 +243,64 @@
     -fx-text-fill: #33475b;
 }
 
+/* ---------------------------------------------------- mix and match (level 4)
+ *
+ * Face up, a card is a grocery tile: white face, plum frame, for the same reason
+ * .grocery-node is — the sprites were drawn against white and the pale ones vanish on
+ * a dark fill. Face down it is the opposite, a dark panel with a cyan question mark, so
+ * the two states are told apart at a glance across the whole grid rather than by
+ * squinting at each card.
+ */
+
+.memory-board {
+    -fx-background-color: transparent;
+}
+
+.memory-grid {
+    -fx-background-color: transparent;
+}
+
+.memory-card {
+    -fx-background-color: -pixel-frame, white;
+    -fx-background-insets: 0, 3;
+    -fx-background-radius: 0;
+    -fx-cursor: hand;
+}
+
+/* The back is painted over the whole card, so face-down shows none of the white face. */
+.memory-card-back {
+    -fx-background-color: -pixel-frame, -pixel-raised;
+    -fx-background-insets: 0, 3;
+    -fx-min-width: 104px;
+    -fx-min-height: 124px;
+    -fx-alignment: center;
+    -fx-font-family: "Consolas", "Courier New", monospace;
+    -fx-font-size: 34px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -pixel-accent;
+}
+
+.memory-card:hover {
+    -fx-background-color: -pixel-accent, white;
+}
+
+.memory-card-name {
+    -fx-font-size: 11px;
+    -fx-text-fill: #33475b;
+}
+
+/* A matched pair is done with. Green frame and a knocked-back face say so without
+ * removing the cards, which the player still wants to see to track what is left. */
+.memory-card-matched {
+    -fx-background-color: -pixel-green, white;
+    -fx-opacity: 0.72;
+    -fx-cursor: default;
+}
+
+.memory-card-matched:hover {
+    -fx-background-color: -pixel-green, white;
+}
+
 /* --------------------------------------------------------------- overlays
  *
  * Game Over, Level Complete, Start and About all share one card treatment, so a run

@@ -54,7 +54,7 @@ class ItemCatalogTest {
 
     @Test
     void everyLevelHasAPositiveTimeLimitAndConsecutiveNumbering() {
-        assertEquals(3, ItemCatalog.LEVELS.size());
+        assertEquals(4, ItemCatalog.LEVELS.size());
         for (int i = 0; i < ItemCatalog.LEVELS.size(); i++) {
             Level level = ItemCatalog.LEVELS.get(i);
             assertEquals(i + 1, level.number(), "levels must be numbered in order");
@@ -92,6 +92,23 @@ class ItemCatalogTest {
         assertTrue(level.gravityMillis() > 0);
         assertEquals(180, level.timeLimitSeconds(),
                 "doing two things at once needs more than a minute");
+    }
+
+    @Test
+    void levelFourIsMixAndMatchWithSixDistinctPairsInAMinute() {
+        Level level = ItemCatalog.LEVELS.get(3);
+
+        assertEquals(LevelMode.MEMORY, level.mode());
+        assertEquals(60, level.timeLimitSeconds());
+        assertEquals(6, level.items().size(), "six pairs is the twelve-card grid the view lays out");
+        assertEquals(0, level.gravityMillis(), "there is no board to fall onto");
+
+        // A repeated item would put four identical cards on the grid, and two of them would
+        // match the wrong partner — the level would be unsolvable by inspection.
+        Set<String> ids = new HashSet<>();
+        for (GroceryItem item : level.items()) {
+            assertTrue(ids.add(item.id()), "duplicate pair: " + item.id());
+        }
     }
 
     @Test

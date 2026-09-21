@@ -233,6 +233,7 @@ public final class LlmLevelDirector implements LevelDirector {
             case SORT_ONLY -> "sorting only, no Tetris board";
             case TETRIS_ONLY -> "Tetris only, nothing to sort";
             case COMBINED -> "Tetris and sorting together";
+            case MEMORY -> "mix and match: a grid of face-down grocery cards, no Tetris board";
         };
     }
 

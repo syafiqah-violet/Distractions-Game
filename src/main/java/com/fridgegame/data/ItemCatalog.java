@@ -42,15 +42,21 @@ public final class ItemCatalog {
             .collect(Collectors.toUnmodifiableMap(GroceryItem::id, Function.identity()));
 
     /**
-     * The three rounds, each teaching a different thing.
+     * The four rounds, each teaching a different thing.
      *
      * <p>Level 1 is drag-and-drop with the shopping already done; level 2 is Tetris with
      * nothing to sort; level 3 is both, with triple the clock because it is the only level
-     * where you have to do two things at once.
+     * where you have to do two things at once. Level 4 drops both mechanics for a third —
+     * mix and match — so the run ends on recall rather than on more of the same.
+     *
+     * <p>On level 4 the items are the <b>pairs</b> to find, not a quota to sort: six items
+     * means twelve cards. They are chosen for how different they look rather than for
+     * category spread, because the player is matching pictures at speed.
      *
      * <p>These are <b>templates</b>. The level director may retune gravity and the item
      * quota of levels 2 and 3 from how the player actually performed — see
-     * {@link Level#withTuning}. Mode, clock and required rows are fixed here.
+     * {@link Level#withTuning}. Mode, clock and required rows are fixed here, and level 4 is
+     * left alone entirely: it has neither gravity nor a sorting quota to tune.
      */
     public static final List<Level> LEVELS = List.of(
             //        n  mode                     items                             time  grav  rows
@@ -60,7 +66,10 @@ public final class ItemCatalog {
                     List.of(),                                                       60,   550, 1),
             new Level(3, LevelMode.COMBINED,
                     itemsById("milk", "cheese", "lettuce", "carrot",
-                            "tomato", "chicken"),                                   180,   480, 0)
+                            "tomato", "chicken"),                                   180,   480, 0),
+            new Level(4, LevelMode.MEMORY,
+                    itemsById("milk", "lettuce", "chicken", "juice",
+                            "ice_cream", "tomato"),                                  60,     0, 0)
     );
 
     private ItemCatalog() {

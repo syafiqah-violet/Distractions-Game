@@ -19,11 +19,17 @@ import org.junit.jupiter.api.Test;
  * is a deadline you can miss, while on the Tetris-only level surviving it <i>is</i> the
  * objective. Getting that backwards would make level 2 unwinnable or level 1 impossible
  * to fail, so it is worth pinning down.
+ *
+ * <p>Every mode is covered here on purpose. The rule is written as one Tetris case and an
+ * {@code else}, so a mode added later takes the deadline reading whether anyone thought
+ * about it or not — these tests are where that thinking is recorded.
  */
 class LevelModeFlowTest {
 
     private static final GroceryItem MILK =
             new GroceryItem("milk", "Milk", "/icons/milk.png", FoodCategory.DAIRY);
+    private static final GroceryItem BUTTER =
+            new GroceryItem("butter", "Butter", "/icons/butter.png", FoodCategory.DAIRY);
 
     private final GameState state = new GameState();
     private final GameController controller = new GameController(state);
@@ -105,6 +111,31 @@ class LevelModeFlowTest {
     @Test
     void combinedFailsWhenTheClockExpiresWithItemsStillUnsorted() {
         controller.startLevel(new Level(3, LevelMode.COMBINED, List.of(MILK), 180));
+
+        expireClock();
+
+        assertTrue(over);
+        assertEquals(-1, completedWithBonus);
+    }
+
+    // ------------------------------------------------------------------ MEMORY
+
+    @Test
+    void memoryFailsWhenTheClockExpiresWithPairsStillUnmatched() {
+        controller.startLevel(new Level(4, LevelMode.MEMORY, List.of(MILK, BUTTER), 60, 0, 0));
+        controller.awardMatchedPair();
+
+        expireClock();
+
+        assertTrue(over, "half a board is not a finished board");
+        assertEquals(-1, completedWithBonus);
+    }
+
+    @Test
+    void memoryDoesNotTakeTheTetrisReadingOfARowQuotaItDoesNotHave() {
+        // requiredRows defaults to 0, which on TETRIS_ONLY means "survive the clock and pass".
+        // A memory level must not inherit that by accident: it has a board to finish.
+        controller.startLevel(new Level(4, LevelMode.MEMORY, List.of(MILK), 60, 0, 0));
 
         expireClock();
 

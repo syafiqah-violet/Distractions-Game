@@ -15,6 +15,7 @@ public class HudView extends HBox {
 
     private final Label rowsLabel;
     private final Label itemsLeftLabel;
+    private final Label pairsLeftLabel;
     private final Button pauseButton = new Button("⏸ Pause");
 
     public HudView(GameState state, HighScoreStore highScoreStore) {
@@ -34,6 +35,13 @@ public class HudView extends HBox {
         itemsLeftLabel = stat();
         itemsLeftLabel.getStyleClass().add("hud-quota");
         itemsLeftLabel.textProperty().bind(state.itemsLeftProperty().asString("To sort: %d"));
+
+        // The same counter, read the other way: on the memory level an "item" is a pair of
+        // cards. One property, two labels, because "To sort: 6" over a grid with nothing to
+        // sort names the wrong goal.
+        pairsLeftLabel = stat();
+        pairsLeftLabel.getStyleClass().add("hud-quota");
+        pairsLeftLabel.textProperty().bind(state.itemsLeftProperty().asString("Pairs left: %d"));
 
         Label highScoreLabel = stat();
         highScoreLabel.getStyleClass().add("hud-muted");
@@ -56,7 +64,7 @@ public class HudView extends HBox {
         setSpacing(18);
         setPadding(new Insets(10, 16, 10, 16));
         getChildren().addAll(
-                scoreLabel, livesLabel, levelLabel, rowsLabel, itemsLeftLabel,
+                scoreLabel, livesLabel, levelLabel, rowsLabel, itemsLeftLabel, pairsLeftLabel,
                 spacer, highScoreLabel, timeLabel, pauseButton);
     }
 
@@ -86,6 +94,7 @@ public class HudView extends HBox {
     public void applyMode(LevelMode mode) {
         show(rowsLabel, mode.hasTetris());
         show(itemsLeftLabel, mode.hasSorting());
+        show(pairsLeftLabel, mode.hasMemory());
     }
 
     private static void show(Label label, boolean visible) {

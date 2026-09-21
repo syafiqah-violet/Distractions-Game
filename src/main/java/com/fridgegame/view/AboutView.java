@@ -25,8 +25,9 @@ public class AboutView extends StackPane {
 
         VBox card = new VBox(10,
                 title,
-                body("Three levels, each one asking for something different. A wrong drop "
-                        + "and a top-out each cost a life; lose all three and the run ends."),
+                body("Four levels, each one asking for something different. A wrong drop, a "
+                        + "top-out and a mismatched pair each cost a life; lose all three "
+                        + "and the run ends."),
                 heading("Level 1 — Sort only, 60s"),
                 body("The shopping is already on the counter. Drag all four items into the "
                         + "zone that accepts them before the clock runs out."),
@@ -37,9 +38,15 @@ public class AboutView extends StackPane {
                 heading("Level 3 — Both, 3 minutes"),
                 body("Every row you clear buys one grocery onto the counter. Sort all six to "
                         + "win. This is the only level the rival shows up for."),
+                heading("Level 4 — Mix and match, 60s"),
+                body("Twelve grocery cards face down. Turn two over: a matching pair stays "
+                        + "up, anything else goes back down a moment later. Find all six "
+                        + "pairs before the clock runs out — a mismatch costs a life, so "
+                        + "remember what you have already seen."),
                 heading("Scoring"),
-                body("A correct drop pays 10, rising with your streak. A wrong one costs 5 "
-                        + "and a life. Finishing a sorting level early pays 2 per second left."),
+                body("A correct drop or a matched pair pays 10, rising with your streak. A "
+                        + "wrong drop or a mismatch costs 5 and a life. Finishing a level "
+                        + "early pays 2 per second left."),
                 heading("Controls"),
                 body("Arrows or WASD to move and rotate, Space to hard-drop, mouse to drag "
                         + "groceries. Esc or P pauses, on every level."),

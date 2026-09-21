@@ -62,6 +62,7 @@ public class LevelCompleteView extends StackPane {
                     : rows + " rows cleared";
             case COMBINED -> rows + (rows == 1 ? " row" : " rows")
                     + " cleared to earn your groceries";
+            case MEMORY -> "Every pair matched";
         };
     }
 }

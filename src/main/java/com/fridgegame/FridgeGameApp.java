@@ -6,6 +6,7 @@ import com.fridgegame.audio.Sfx;
 import com.fridgegame.controller.CommentaryController;
 import com.fridgegame.controller.DragHandler;
 import com.fridgegame.controller.GameController;
+import com.fridgegame.controller.MemoryController;
 import com.fridgegame.controller.TetrisController;
 import com.fridgegame.data.HighScoreStore;
 import com.fridgegame.data.ItemCatalog;
@@ -30,6 +31,7 @@ import com.fridgegame.view.FridgeView;
 import com.fridgegame.view.GameOverView;
 import com.fridgegame.view.HudView;
 import com.fridgegame.view.LevelCompleteView;
+import com.fridgegame.view.MemoryBoardView;
 import com.fridgegame.view.PauseOverlay;
 import com.fridgegame.view.StartView;
 import com.fridgegame.view.TetrisPanel;
@@ -102,6 +104,7 @@ public class FridgeGameApp extends Application {
     private GameState state;
     private GameController controller;
     private TetrisController tetris;
+    private MemoryController memory;
     private HighScoreStore highScoreStore;
     private Timeline timer;
     private StackPane gameShell;
@@ -110,6 +113,7 @@ public class FridgeGameApp extends Application {
     private HudView hudView;
     private TetrisPanel tetrisPanel;
     private CounterView counterView;
+    private MemoryBoardView memoryView;
     private CommentaryView commentaryView;
     private PauseOverlay pauseOverlay;
     private StartView startView;
@@ -160,6 +164,17 @@ public class FridgeGameApp extends Application {
         tetris.setOnRowsCleared(this::onRowsCleared);
         tetris.setOnTopOut(this::onTopOut);
         tetris.setOnPieceLocked(this::onPieceLocked);
+
+        memory = new MemoryController(System.nanoTime());
+        memory.setOnChanged(this::renderMemoryBoard);
+        memory.setOnMatch(() -> {
+            Sfx.store();
+            controller.awardMatchedPair();
+        });
+        memory.setOnMismatch(() -> {
+            Sfx.lock();
+            controller.penalizeMismatch();
+        });
 
         hudView = new HudView(state, highScoreStore);
         hudView.setOnPauseToggle(this::togglePause);
@@ -280,6 +295,7 @@ public class FridgeGameApp extends Application {
         }
         paused = value;
         tetris.setPaused(value);
+        memory.setPaused(value);
         controller.setPaused(value);
         if (value) {
             timer.pause();
@@ -316,6 +332,7 @@ public class FridgeGameApp extends Application {
         paused = false;
         pauseKeyHeld = false;
         tetris.setPaused(false);
+        memory.setPaused(false);
         controller.setPaused(false);
         hudView.setPaused(false);
         pauseOverlay.setVisible(false);
@@ -396,7 +413,8 @@ public class FridgeGameApp extends Application {
      * Builds the screen for {@code level} and starts it.
      *
      * <p>The mode decides what exists: a sorting level has no board and never starts
-     * gravity, a Tetris level builds no counter or fridge at all.
+     * gravity, a Tetris level builds no counter or fridge at all, and a memory level has
+     * neither — just its grid of cards.
      */
     private void loadLevel(Level level) {
         // The one invariant that makes every other unpause belt-and-braces: a level never
@@ -409,7 +427,18 @@ public class FridgeGameApp extends Application {
         hudView.applyMode(mode);
         commentaryView.clear();
 
-        if (mode.hasSorting()) {
+        if (mode.hasMemory()) {
+            counterView = null;
+            // Cleared before the deal, not after. startLevel fires onChanged, and the view
+            // that would answer it is the previous level's — a different board, possibly a
+            // different number of cards.
+            memoryView = null;
+            memory.startLevel(level.items());
+            memoryView = new MemoryBoardView(memory.getBoard(), memory::flip);
+            content.setAlignment(Pos.CENTER);
+            content.getChildren().setAll(memoryView);
+        } else if (mode.hasSorting()) {
+            memoryView = null;
             FridgeView fridgeView = new FridgeView();
             counterView = new CounterView();
             counterView.setPrefWidth(COUNTER_WIDTH);
@@ -425,6 +454,7 @@ public class FridgeGameApp extends Application {
             }
         } else {
             counterView = null;
+            memoryView = null;
             content.setAlignment(Pos.TOP_CENTER);
             content.getChildren().setAll(tetrisPanel);
         }
@@ -439,12 +469,27 @@ public class FridgeGameApp extends Application {
         } else {
             tetris.stop();
         }
+        if (!mode.hasMemory()) {
+            memory.stop();
+        }
 
         levelRunning = true;
         if (mode == LevelMode.COMBINED) {
             startCommentary();
         } else if (commentary != null) {
             commentary.stop();
+        }
+    }
+
+    /**
+     * Repaints the card grid after a flip.
+     *
+     * <p>Guarded on both halves because the controller deals the board before the view that
+     * draws it exists, and every other level has no card grid at all.
+     */
+    private void renderMemoryBoard() {
+        if (memoryView != null && memory.getBoard() != null) {
+            memoryView.render(memory.getBoard());
         }
     }
 
@@ -455,7 +500,7 @@ public class FridgeGameApp extends Application {
         }
         commentary.start();
         comment(CommentaryEvent.Kind.LEVEL_START,
-                "the final level just started: " + currentLevel.items().size()
+                "level " + currentLevel.number() + " just started: " + currentLevel.items().size()
                         + " groceries to earn and sort in " + currentLevel.timeLimitSeconds()
                         + " seconds");
     }
@@ -531,6 +576,7 @@ public class FridgeGameApp extends Application {
         levelRunning = false;
         timer.stop();
         tetris.stop();
+        memory.stop();
         voice.stop();
         if (commentary != null) {
             commentary.stop();
@@ -584,6 +630,7 @@ public class FridgeGameApp extends Application {
         levelRunning = false;
         timer.stop();
         tetris.stop();
+        memory.stop();
         // The run is over; a taunt landing under the Game Over card is about nothing.
         voice.stop();
         if (commentary != null) {

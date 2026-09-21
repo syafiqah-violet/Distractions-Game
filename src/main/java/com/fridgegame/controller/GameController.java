@@ -29,6 +29,25 @@ public class GameController {
      */
     private static final int[] ROW_POINTS = {0, 20, 60, 150, 400};
 
+    /**
+     * What a mismatched pair on the mix-and-match level costs.
+     *
+     * <p>Named rather than inlined because these are the level's difficulty dial and it is
+     * almost certainly not set right yet. Six pairs costs even a player with a perfect memory
+     * four to six mismatches to solve, lives carry over from earlier levels, and there are
+     * only three of them — so as it stands, reaching Level 4 on one life is close to an
+     * automatic loss. If play-testing bears that out, {@link #FREE_MISMATCHES} buys a grace
+     * period and {@link #MISMATCH_COSTS_LIFE} takes lives out of it altogether, without
+     * anything else having to move.
+     */
+    private static final int MISMATCH_PENALTY = 5;
+
+    /** Whether a mismatch costs a life, exactly as a wrong drop does. */
+    private static final boolean MISMATCH_COSTS_LIFE = true;
+
+    /** Mismatches per level that cost points but no life. Zero means the first one already does. */
+    private static final int FREE_MISMATCHES = 0;
+
     private final GameState state;
 
     /** The level's quota, waiting to be earned one cleared row at a time. */
@@ -41,6 +60,7 @@ public class GameController {
     private int correctDrops;
     private int wrongDrops;
     private int topOuts;
+    private int mismatches;
 
     private IntConsumer onLevelComplete = bonus -> { };
     private Runnable onGameOver = () -> { };
@@ -60,6 +80,11 @@ public class GameController {
      * level has no Tetris board to earn it from, and the point is to practise sorting.
      * Otherwise nothing is on the counter until rows are cleared.
      *
+     * <p>On {@link LevelMode#MEMORY} the level's items are the <i>pairs</i> to find rather
+     * than a quota to sort, so nothing is released at all and {@code itemsLeft} counts down
+     * pairs instead of groceries. Both readings agree on what matters: the level is over when
+     * it reaches zero.
+     *
      * <p>Callers must have the counter view built before calling this, since the release
      * fires {@code onItemUnlocked} synchronously.
      */
@@ -71,6 +96,7 @@ public class GameController {
         correctDrops = 0;
         wrongDrops = 0;
         topOuts = 0;
+        mismatches = 0;
         if (level.mode() == LevelMode.SORT_ONLY) {
             releaseAll();
         }
@@ -175,20 +201,7 @@ public class GameController {
         boolean correct = zone.accepts(item);
         onActivity.run();
         if (correct) {
-            correctDrops++;
-            int bonus = CORRECT_BASE_POINTS * (1 + state.getStreak() / STREAK_DIVISOR);
-            state.setScore(state.getScore() + bonus);
-            state.setStreak(state.getStreak() + 1);
-            state.setItemsLeft(state.getItemsLeft() - 1);
-            if (state.getItemsLeft() == 0) {
-                int timeBonus = state.getSecondsLeft() * TIME_BONUS_PER_SECOND;
-                state.setScore(state.getScore() + timeBonus);
-                onLevelComplete.accept(timeBonus);
-                return true;
-            }
-            if (state.getStreak() % STREAK_DIVISOR == 0) {
-                onStreak.accept(state.getStreak());
-            }
+            creditProgress();
         } else {
             wrongDrops++;
             state.setScore(state.getScore() - WRONG_PENALTY);
@@ -200,6 +213,49 @@ public class GameController {
             }
         }
         return correct;
+    }
+
+    /**
+     * Pays out one matched pair on the mix-and-match level.
+     *
+     * <p>Scored exactly like a correct drop, streak multiplier included, so a run of matches
+     * is worth what a run of correct drops is worth and the HUD's streak means one thing
+     * across the whole game. The last pair completes the level the same way the last grocery
+     * does — see {@link #creditProgress()}.
+     */
+    public void awardMatchedPair() {
+        if (paused) {
+            return;
+        }
+        onActivity.run();
+        creditProgress();
+    }
+
+    /**
+     * Charges a mismatched pair on the mix-and-match level.
+     *
+     * <p>The same shape as a wrong drop — points, streak, a life — because it is the same
+     * mistake in a different costume, and a player who has learnt what a wrong drop costs
+     * should not have to learn a second penalty. Whether a life is actually charged is
+     * {@link #MISMATCH_COSTS_LIFE}'s business; read the note there before tuning it.
+     */
+    public void penalizeMismatch() {
+        if (paused) {
+            return;
+        }
+        onActivity.run();
+        mismatches++;
+        // Counted as a wrong drop as well, so the director sees one measure of "got it wrong"
+        // rather than a level that looks flawless because its mistakes had a different name.
+        wrongDrops++;
+        state.setScore(state.getScore() - MISMATCH_PENALTY);
+        state.setStreak(0);
+        if (MISMATCH_COSTS_LIFE && mismatches > FREE_MISMATCHES) {
+            state.setLives(state.getLives() - 1);
+            if (state.getLives() <= 0) {
+                onGameOver.run();
+            }
+        }
     }
 
     /**
@@ -226,6 +282,10 @@ public class GameController {
      * there is nothing to finish, so surviving the full minute <i>is</i> the objective —
      * provided at least {@link Level#requiredRows()} rows went down, which is what stops
      * a player from passing by parking pieces in a corner and waiting.
+     *
+     * <p>{@link LevelMode#MEMORY} takes the deadline reading deliberately, not by accident of
+     * falling through: pairs still on the board when the clock expires is a loss. Finding
+     * some of them is not finishing, and the level-complete card would be a lie.
      */
     public void tick() {
         state.setSecondsLeft(state.getSecondsLeft() - 1);
@@ -240,6 +300,29 @@ public class GameController {
             }
         } else {
             onGameOver.run();
+        }
+    }
+
+    /**
+     * One unit of progress towards finishing the level: a sorted grocery, or a matched pair.
+     *
+     * <p>Shared so that the two mechanics cannot drift apart on the thing that ends a level.
+     * When this was written out twice, only one copy knew about the time bonus.
+     */
+    private void creditProgress() {
+        correctDrops++;
+        int bonus = CORRECT_BASE_POINTS * (1 + state.getStreak() / STREAK_DIVISOR);
+        state.setScore(state.getScore() + bonus);
+        state.setStreak(state.getStreak() + 1);
+        state.setItemsLeft(state.getItemsLeft() - 1);
+        if (state.getItemsLeft() == 0) {
+            int timeBonus = state.getSecondsLeft() * TIME_BONUS_PER_SECOND;
+            state.setScore(state.getScore() + timeBonus);
+            onLevelComplete.accept(timeBonus);
+            return;
+        }
+        if (state.getStreak() % STREAK_DIVISOR == 0) {
+            onStreak.accept(state.getStreak());
         }
     }
 

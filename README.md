@@ -1,17 +1,19 @@
 # Distractions Game
 
 JavaFX game in two halves: play **Tetris** to earn groceries, then drag each earned item
-into the right fridge zone. Three levels, each teaching a different thing — and a local
-LLM plays the rival commentator and the difficulty director rather than playing Tetris.
+into the right fridge zone, then find matching pairs from memory. Four levels, each
+teaching a different thing — and a local LLM plays the rival commentator and the difficulty
+director rather than playing Tetris.
 
 | Level | What you do | Clock | Pass | Fail |
 |---|---|---|---|---|
 | 1 | Sort only — the shopping is already on the counter, no board | 60s | every item in the right zone | clock expires with items left |
 | 2 | Tetris only — nothing to sort, score as much as you can | 60s | survive the clock, having cleared ≥ 1 row | 0 rows when it expires |
 | 3 | Both — clear a row to earn a grocery, then sort it | 3 min | every item sorted | clock expires with items left |
+| 4 | Mix and match — 12 grocery cards face down, flip two at a time | 60s | all 6 pairs matched | clock expires with pairs left |
 
-Losing all three lives ends the run on any level. A wrong drop and a top-out each cost
-one.
+Losing all three lives ends the run on any level. A wrong drop, a top-out and a mismatched
+pair each cost one.
 
 ## Download and play
 
@@ -26,7 +28,7 @@ The build is unsigned, so Windows shows "unknown publisher" on first launch — 
 
 A downloaded copy plays the **offline path**. The rival's commentary and the adaptive
 difficulty both want an LLM endpoint on your own machine, and the default address is a LAN
-box that is not yours; all three levels play through regardless, just without those two.
+box that is not yours; all four levels play through regardless, just without those two.
 [Configuration](#configuration) covers pointing it at your own. To watch the model think —
 the `[llm]` and `LLM thinking:` lines — run from source: the packaged launcher opens no
 console of its own.
@@ -130,7 +132,7 @@ to get started.
 No key is compiled into the source or the jar. The endpoint currently accepts
 unauthenticated requests, so an absent key is a supported configuration.
 
-To confirm the offline path, point it at a dead port. All three levels must still play
+To confirm the offline path, point it at a dead port. All four levels must still play
 through, with no commentary card and `[llm] offline (endpoint unreachable)` on the console:
 
 ```bash
@@ -212,14 +214,24 @@ fixed. Gravity and the quota are starting points the director may retune for lev
 | 1 | `SORT_ONLY` | 60s | 4 (given) | — | — |
 | 2 | `TETRIS_ONLY` | 60s | — | 550ms | 1 |
 | 3 | `COMBINED` | 180s | 6 (earned) | 480ms | — |
+| 4 | `MEMORY` | 60s | 6 pairs (12 cards) | — | — |
+
+On level 4 the "quota" is the list of items to pair up, not a list to sort — six items
+means twelve cards. The director leaves it alone: it has neither gravity nor a sorting
+quota to retune.
 
 Director bounds: gravity 300–800ms, quota 3–10 items. A quota is never drawn from a single
 food category, so the fridge stays a sorting problem.
 
-Scoring: a correct drop pays 10 × (1 + streak/5); a wrong one costs 5 and a life. Cleared
-rows pay 20/60/150/400 for 1/2/3/4 at once — steeply superlinear, because on level 2 there
-are no groceries to earn, so stacking has to be worth the risk. Finishing a sorting level
-early pays 2 points per second left.
+Scoring: a correct drop or a matched pair pays 10 × (1 + streak/5); a wrong drop or a
+mismatch costs 5 and a life. Cleared rows pay 20/60/150/400 for 1/2/3/4 at once — steeply
+superlinear, because on level 2 there are no groceries to earn, so stacking has to be worth
+the risk. Finishing a level early pays 2 points per second left.
+
+**Level 4 is not tuned yet.** Six pairs costs even a player with a perfect memory four to
+six mismatches to solve, lives carry over between levels, and there are only three of them.
+`GameController.MISMATCH_COSTS_LIFE` and `FREE_MISMATCHES` are the dials; play-test before
+trusting the current settings.
 
 ## Layout
 
@@ -234,7 +246,7 @@ src/main/java/com/fridgegame/
 ├── FridgeGameApp.java   # Application; owns the Stage, the Scene and the level flow
 ├── model/               # FoodCategory, StorageZone, GroceryItem, Level, LevelMode,
 │                        # GameState, Cell, Tetromino, TetrisBoard, TetrisMove,
-│                        # StepResult, BoardMetrics
+│                        # StepResult, BoardMetrics, MemoryBoard
 ├── data/                # ItemCatalog (items + level templates), HighScoreStore
 ├── director/            # LevelDirector (interface), FixedLevelDirector, LevelStats
 ├── audio/               # Sfx (sound effects), RivalVoice (interface), PiperVoice
@@ -242,9 +254,10 @@ src/main/java/com/fridgegame/
 │                        # LlmCommentator, CommentaryEvent, LlmLevelDirector
 ├── view/                # GroceryNode, ZoneNode, FridgeView, CounterView, HudView,
 │                        # TetrisBoardView, TetrisPanel, CommentaryView,
-│                        # LevelCompleteView, GameOverView, ViewTransitions
+│                        # LevelCompleteView, GameOverView, ViewTransitions,
+│                        # MemoryCardNode, MemoryBoardView
 └── controller/          # GameController, DragHandler, TetrisController,
-                         # CommentaryController
+                         # CommentaryController, MemoryController
 
 src/main/resources/com/fridgegame/
 ├── styles.css
@@ -254,9 +267,14 @@ src/test/java/com/fridgegame/
 ```
 
 The level's `LevelMode` decides what exists on screen: a sorting level builds no board and
-never starts gravity, a Tetris level builds no counter or fridge at all, and `HudView`
-hides the stats that level cannot change — "Rows: 0" on a boardless level reads as a goal
-you are failing rather than one that does not exist.
+never starts gravity, a Tetris level builds no counter or fridge at all, a memory level has
+neither — just its grid of cards — and `HudView` hides the stats that level cannot change:
+"Rows: 0" on a boardless level reads as a goal you are failing rather than one that does
+not exist.
+
+`hasTetris()` and `hasSorting()` are spelled as positive lists rather than as `!= SORT_ONLY`
+and `!= TETRIS_ONLY`. A negation would hand every mode added later both mechanics by
+default, silently — `MEMORY` would have booted with a Tetris board beside its cards.
 
 `CommentaryView` floats in a `StackPane` over the game so it takes no space from the
 board or the fridge. It is `mouseTransparent`, which is load-bearing: it overlaps the
